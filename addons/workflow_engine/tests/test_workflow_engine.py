@@ -47,7 +47,7 @@ class TestWorkflowEngine(TransactionCase):
             }
         )
         done = self.env["workflow.state"].create(
-            {"name": "Done", "code": "done", "version_id": version.id, "type": "end", "approval_mode": "none"}
+            {"name": "Done", "code": "done", "version_id": version.id, "type": "end", "end_type": "success", "approval_mode": "none"}
         )
         self.env["workflow.transition"].create(
             {
@@ -106,7 +106,7 @@ class TestWorkflowEngine(TransactionCase):
             }
         )
         done = self.env["workflow.state"].create(
-            {"name": "Done", "code": "done", "version_id": version.id, "type": "end", "approval_mode": "none"}
+            {"name": "Done", "code": "done", "version_id": version.id, "type": "end", "end_type": "success", "approval_mode": "none"}
         )
         self.env["workflow.transition"].create(
             {
@@ -328,7 +328,7 @@ class TestWorkflowEngine(TransactionCase):
         )
         self.assertTrue(transition.code)
 
-    def test_expression_validation_blocks_forbidden_tokens(self):
+    def test_expression_validation_blocks_unsafe_syntax(self):
         process = self.env["workflow.process"].create({"name": "Expr", "code": "expr_demo"})
         version = self.env["workflow.process.version"].create(
             {"name": "Expr v1", "process_id": process.id, "version": 1, "state": "active"}
@@ -353,7 +353,7 @@ class TestWorkflowEngine(TransactionCase):
                     "source_state_id": condition.id,
                     "dest_state_id": target.id,
                     "trigger": "auto",
-                    "branch_expression": "env.cr.execute('select 1')",
+                    "branch_expression": "record.partner_id.email == True",
                 }
             )
 
@@ -371,3 +371,86 @@ class TestWorkflowEngine(TransactionCase):
         record.write({"expires_at": fields.Datetime.now() - timedelta(days=1)})
         user = key_model.authenticate_token(token)
         self.assertFalse(user)
+
+    def test_activation_validation_blocks_unreachable_state(self):
+        process = self.env["workflow.process"].create(
+            {"name": "Unreachable", "code": "unreachable_demo"}
+        )
+        version = self.env["workflow.process.version"].create(
+            {"name": "Unreachable v1", "process_id": process.id, "version": 1, "state": "draft"}
+        )
+        start = self.env["workflow.state"].create(
+            {"name": "Start", "code": "start", "version_id": version.id, "type": "start", "approval_mode": "none"}
+        )
+        end = self.env["workflow.state"].create(
+            {"name": "End", "code": "end", "version_id": version.id, "type": "end", "end_type": "success", "approval_mode": "none"}
+        )
+        orphan = self.env["workflow.state"].create(
+            {"name": "Orphan", "code": "orphan", "version_id": version.id, "type": "task", "approval_mode": "none"}
+        )
+        self.env["workflow.transition"].create(
+            {
+                "name": "to_end",
+                "version_id": version.id,
+                "source_state_id": start.id,
+                "dest_state_id": end.id,
+                "trigger": "auto",
+            }
+        )
+        self.env["workflow.transition"].create(
+            {
+                "name": "orphan_to_end",
+                "version_id": version.id,
+                "source_state_id": orphan.id,
+                "dest_state_id": end.id,
+                "trigger": "auto",
+            }
+        )
+        with self.assertRaises(ValidationError):
+            version.write({"state": "active"})
+
+    def test_activation_validation_blocks_dead_end_loop(self):
+        process = self.env["workflow.process"].create(
+            {"name": "Loop", "code": "loop_demo"}
+        )
+        version = self.env["workflow.process.version"].create(
+            {"name": "Loop v1", "process_id": process.id, "version": 1, "state": "draft"}
+        )
+        start = self.env["workflow.state"].create(
+            {"name": "Start", "code": "start", "version_id": version.id, "type": "start", "approval_mode": "none"}
+        )
+        loop = self.env["workflow.state"].create(
+            {"name": "Loop", "code": "loop", "version_id": version.id, "type": "task", "approval_mode": "none"}
+        )
+        end = self.env["workflow.state"].create(
+            {"name": "End", "code": "end", "version_id": version.id, "type": "end", "end_type": "success", "approval_mode": "none"}
+        )
+        self.env["workflow.transition"].create(
+            {
+                "name": "start_to_loop",
+                "version_id": version.id,
+                "source_state_id": start.id,
+                "dest_state_id": loop.id,
+                "trigger": "auto",
+            }
+        )
+        self.env["workflow.transition"].create(
+            {
+                "name": "start_to_end",
+                "version_id": version.id,
+                "source_state_id": start.id,
+                "dest_state_id": end.id,
+                "trigger": "auto",
+            }
+        )
+        self.env["workflow.transition"].create(
+            {
+                "name": "loop_self",
+                "version_id": version.id,
+                "source_state_id": loop.id,
+                "dest_state_id": loop.id,
+                "trigger": "auto",
+            }
+        )
+        with self.assertRaises(ValidationError):
+            version.write({"state": "active"})

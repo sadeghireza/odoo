@@ -1,5 +1,6 @@
 from . import workflow_process
 from . import workflow_state
+from . import workflow_action
 from . import workflow_instance
 from . import workflow_sla
 from . import workflow_delegation

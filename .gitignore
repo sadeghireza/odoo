@@ -50,3 +50,6 @@ package.json
 /man/
 /share/
 /src/
+
+# local Odoo server logs
+odoo-server*.log

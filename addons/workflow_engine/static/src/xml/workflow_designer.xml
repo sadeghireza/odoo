@@ -19,12 +19,20 @@
                     <button class="btn btn-outline-primary" t-on-click="createRevision" t-att-disabled="!state.selectedVersionId">New Revision</button>
                     <button class="btn btn-outline-success" t-on-click="activateVersion" t-att-disabled="!state.selectedVersionId">Activate</button>
                 </div>
+                <div class="we-toolbar-group">
+                    <span class="we-toolbar-label">Tools</span>
+                    <button class="btn btn-outline-primary" t-on-click="openDiffModal" t-att-disabled="!state.versions.length">Diff</button>
+                    <button class="btn btn-outline-primary" t-on-click="openSimulateModal" t-att-disabled="!state.selectedVersionId">Simulate</button>
+                </div>
                 <div class="we-spacer"/>
                 <div class="we-toolbar-group">
                     <span class="we-toolbar-label">View</span>
                     <button class="btn btn-light" t-on-click="zoomOut">-</button>
                     <button class="btn btn-light" t-on-click="zoomIn">+</button>
                     <button class="btn btn-light" t-on-click="resetView">Reset</button>
+                </div>
+                <div class="we-toolbar-brand">
+                    <img src="/workflow_engine/static/src/img/ipmo_logo.png" alt="IPMO"/>
                 </div>
                 <span t-if="state.loading" class="we-loading">Loading...</span>
             </div>
@@ -153,24 +161,42 @@
                             <label>Type</label>
                             <select class="form-select" t-att-value="state.stateForm.type" data-field="type" t-on-change="updateStateField">
                                 <option value="start">Start</option>
-                                <option value="task">Task</option>
-                                <option value="condition">Condition</option>
+                                <option value="task">Approval</option>
+                                <option value="approval">Approval</option>
+                                <option value="manual">Manual Task</option>
+                                <option value="action">Action</option>
+                                <option value="condition">Gateway (XOR)</option>
                                 <option value="end">End</option>
                             </select>
-                            <label>Approval</label>
-                            <select class="form-select" t-att-value="state.stateForm.approval_mode" data-field="approval_mode" t-on-change="updateStateField" t-att-disabled="state.stateForm.type === 'condition'">
-                                <option value="none">None</option>
-                                <option value="sequential">Sequential</option>
-                                <option value="parallel">Parallel</option>
-                            </select>
-                            <label>Parallel Policy</label>
-                            <select class="form-select" t-att-value="state.stateForm.parallel_policy" data-field="parallel_policy" t-on-change="updateStateField" t-att-disabled="state.stateForm.type === 'condition'">
-                                <option value="all">All</option>
-                                <option value="any">Any</option>
-                                <option value="min">Minimum</option>
-                            </select>
-                            <label>Min Approvals</label>
-                            <input type="number" class="form-control" t-att-value="state.stateForm.min_approvals" data-field="min_approvals" t-on-input="updateStateNumber" t-att-disabled="state.stateForm.type === 'condition'"/>
+                            <t t-if="state.stateForm.type === 'task' || state.stateForm.type === 'approval'">
+                                <label>Approval</label>
+                                <select class="form-select" t-att-value="state.stateForm.approval_mode" data-field="approval_mode" t-on-change="updateStateField">
+                                    <option value="none">None</option>
+                                    <option value="sequential">Sequential</option>
+                                    <option value="parallel">Parallel</option>
+                                </select>
+                                <label>Parallel Policy</label>
+                                <select class="form-select" t-att-value="state.stateForm.parallel_policy" data-field="parallel_policy" t-on-change="updateStateField" t-att-disabled="state.stateForm.approval_mode !== 'parallel'">
+                                    <option value="all">All Required</option>
+                                    <option value="min">Minimum Required</option>
+                                </select>
+                                <label>Min Approvals</label>
+                                <input type="number" class="form-control" t-att-value="state.stateForm.min_approvals" data-field="min_approvals" t-on-input="updateStateNumber" t-att-disabled="state.stateForm.parallel_policy !== 'min'"/>
+                            </t>
+                            <t t-if="state.stateForm.type === 'end'">
+                                <label>End Type</label>
+                                <select class="form-select" t-att-value="state.stateForm.end_type" data-field="end_type" t-on-change="updateStateField">
+                                    <option value="">Select end type</option>
+                                    <option value="success">Success</option>
+                                    <option value="rejected">Rejected</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </t>
+                            <t t-if="state.stateForm.type === 'action'">
+                                <div class="we-panel-subtitle">Actions</div>
+                                <div class="we-panel-empty">Configure safe actions for this node.</div>
+                                <button class="btn btn-outline-primary" t-on-click="openActionsForState">Manage Actions</button>
+                            </t>
                             <t t-if="state.stateForm.type === 'condition'">
                                 <div class="we-panel-subtitle">Branches</div>
                                 <t t-set="outgoing" t-value="state.transitions.filter((t) => t.source_state_id?.[0] === state.selectedStateId)"/>
@@ -178,9 +204,9 @@
                                     <div class="we-panel-empty">No branches yet. Use Add Transition from this node.</div>
                                 </t>
                                 <t t-foreach="outgoing" t-as="branch" t-key="branch.id">
-                                    <div class="we-branch-row">
+                                    <div t-att-class="`we-branch-row${branch.branch_is_else ? ' is-default' : ''}`">
                                         <div class="we-branch-label">
-                                            <t t-esc="branch.branch_is_else ? 'ELSE' : (branch.branch_expression || branch.name)"/>
+                                            <t t-esc="branch.branch_is_else ? 'DEFAULT' : (branch.branch_expression || branch.name)"/>
                                         </div>
                                         <button class="btn btn-light" t-att-data-transition-id="branch.id" t-on-click="openBranchEditor">Edit</button>
                                     </div>
@@ -233,6 +259,17 @@
                     <t t-if="!state.selectedStateId and !state.selectedTransitionId">
                         <div class="we-panel-empty">Select a state or transition to edit.</div>
                     </t>
+                    <div class="we-panel-section">
+                        <div class="we-panel-subtitle">Validation</div>
+                        <t t-if="state.validationWarnings.length">
+                            <t t-foreach="state.validationWarnings" t-as="warn" t-key="warn">
+                                <div class="we-panel-warning">Warning: <t t-esc="warn"/></div>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <div class="we-panel-empty">All checks pass.</div>
+                        </t>
+                    </div>
                 </div>
             </div>
         </div>
@@ -245,10 +282,17 @@
                 </div>
                 <div class="we-modal-body">
                     <div class="we-builder-meta">Model: <t t-esc="state.targetModel.name"/></div>
+                    <t t-if="state.impactInfo">
+                        <div class="we-builder-meta">Active instances: <t t-esc="state.impactInfo.instanceCount"/></div>
+                        <div class="we-builder-meta">Affected transitions: <t t-esc="state.impactInfo.transitionNames.join(', ')"/></div>
+                    </t>
                     <label class="we-builder-else">
                         <input type="checkbox" t-model="state.builderDraftIsElse"/>
                         ELSE branch
                     </label>
+                    <t t-if="!state.conditionFields.length">
+                        <div class="we-panel-warning">Warning: No boolean fields available for conditions.</div>
+                    </t>
                     <t t-foreach="state.builderDraftRules" t-as="rule" t-foreach-index="idx" t-key="rule.id">
                         <div class="we-builder-row">
                             <select class="form-select we-builder-logic" t-model="rule.logic" t-att-disabled="state.builderDraftIsElse || idx == 0">
@@ -257,24 +301,19 @@
                             </select>
                             <select class="form-select we-builder-field" t-model="rule.field" t-att-disabled="state.builderDraftIsElse">
                                 <option value="">Select field</option>
-                                <t t-foreach="state.modelFields" t-as="field" t-key="field.name">
+                                <t t-foreach="state.conditionFields" t-as="field" t-key="field.name">
                                     <option t-att-value="field.name"><t t-esc="field.string"/></option>
                                 </t>
                             </select>
                             <select class="form-select we-builder-op" t-model="rule.operator" t-att-disabled="state.builderDraftIsElse">
                                 <option value="=">=</option>
                                 <option value="!=">!=</option>
-                                <option value=">">&gt;</option>
-                                <option value=">=">&gt;=</option>
-                                <option value="&lt;">&lt;</option>
-                                <option value="&lt;=">&lt;=</option>
-                                <option value="contains">contains</option>
-                                <option value="in">in</option>
-                                <option value="not_in">not in</option>
-                                <option value="is_set">is set</option>
-                                <option value="is_not_set">is not set</option>
                             </select>
-                            <input class="form-control we-builder-value" t-model="rule.value" t-att-disabled="state.builderDraftIsElse" placeholder="value"/>
+                            <select class="form-select we-builder-value" t-model="rule.value" t-att-disabled="state.builderDraftIsElse">
+                                <option value="">Select value</option>
+                                <option value="True">True</option>
+                                <option value="False">False</option>
+                            </select>
                             <button class="btn btn-light" t-att-data-index="idx" t-att-disabled="state.builderDraftIsElse" t-on-click="removeRule">Remove</button>
                         </div>
                     </t>
@@ -284,6 +323,112 @@
                     <div class="we-modal-spacer"/>
                     <button type="button" class="btn btn-secondary" t-on-click="closeBuilderModal">Cancel</button>
                     <button type="button" class="btn btn-success" t-on-click="saveCondition">Save Condition</button>
+                </div>
+            </div>
+        </t>
+        <t t-if="state.diffModalOpen">
+            <div class="we-modal-backdrop" t-on-click="closeDiffModal"/>
+            <div class="we-modal">
+                <div class="we-modal-header">
+                    <div class="we-modal-title">Version Diff</div>
+                    <button class="btn btn-light" t-on-click="closeDiffModal">Close</button>
+                </div>
+                <div class="we-modal-body">
+                    <div class="we-diff-row">
+                        <label>Version A</label>
+                        <select class="form-select" t-model="state.diffVersionA">
+                            <t t-foreach="state.versions" t-as="v" t-key="v.id">
+                                <option t-att-value="v.id"><t t-esc="v.label"/></option>
+                            </t>
+                        </select>
+                    </div>
+                    <div class="we-diff-row">
+                        <label>Version B</label>
+                        <select class="form-select" t-model="state.diffVersionB">
+                            <t t-foreach="state.versions" t-as="v" t-key="v.id">
+                                <option t-att-value="v.id"><t t-esc="v.label"/></option>
+                            </t>
+                        </select>
+                    </div>
+                    <button class="btn btn-outline-primary" t-on-click="runDiff">Compare</button>
+                    <t t-if="state.diffResults">
+                        <div class="we-diff-summary">
+                            <div class="we-diff-card is-added">Added states: <t t-esc="state.diffResults.addedStates.length"/></div>
+                            <div class="we-diff-card is-removed">Removed states: <t t-esc="state.diffResults.removedStates.length"/></div>
+                            <div class="we-diff-card is-added">Added transitions: <t t-esc="state.diffResults.addedTransitions.length"/></div>
+                            <div class="we-diff-card is-removed">Removed transitions: <t t-esc="state.diffResults.removedTransitions.length"/></div>
+                            <div class="we-diff-card is-modified">Modified transitions: <t t-esc="state.diffResults.modifiedTransitions.length"/></div>
+                        </div>
+                        <div class="we-diff-list">
+                            <div class="we-panel-subtitle">Added States</div>
+                            <t t-foreach="state.diffResults.addedStates" t-as="st" t-key="st.id">
+                                <div class="we-diff-item">+ <t t-esc="st.name"/></div>
+                            </t>
+                            <div class="we-panel-subtitle">Removed States</div>
+                            <t t-foreach="state.diffResults.removedStates" t-as="st" t-key="st.id">
+                                <div class="we-diff-item">- <t t-esc="st.name"/></div>
+                            </t>
+                            <div class="we-panel-subtitle">Modified Transitions</div>
+                            <t t-foreach="state.diffResults.modifiedTransitions" t-as="tr" t-key="tr.key">
+                                <div class="we-diff-item">~ <t t-esc="tr.key"/></div>
+                            </t>
+                        </div>
+                    </t>
+                </div>
+                <div class="we-modal-actions">
+                    <button type="button" class="btn btn-secondary" t-on-click="closeDiffModal">Close</button>
+                </div>
+            </div>
+        </t>
+        <t t-if="state.simulateModalOpen">
+            <div class="we-modal-backdrop" t-on-click="closeSimulateModal"/>
+            <div class="we-modal">
+                <div class="we-modal-header">
+                    <div class="we-modal-title">Simulation</div>
+                    <button class="btn btn-light" t-on-click="closeSimulateModal">Close</button>
+                </div>
+                <div class="we-modal-body">
+                    <div class="we-builder-meta">
+                        Model:
+                        <t t-if="state.targetModel"><t t-esc="state.targetModel.name"/></t>
+                        <t t-else="">Not set</t>
+                    </div>
+                    <label>Search record</label>
+                    <input class="form-control" t-att-value="state.simulateQuery" t-on-input="searchSimulationRecords" placeholder="Type to search..."/>
+                    <div class="we-simulate-options">
+                        <t t-foreach="state.simulateOptions" t-as="opt" t-key="opt.id">
+                            <button class="btn btn-light we-simulate-option" t-att-data-record-id="opt.id" t-on-click="selectSimulationRecord">
+                                <t t-esc="opt.name"/>
+                            </button>
+                        </t>
+                    </div>
+                    <t t-if="state.simulateRecordName">
+                        <div class="we-builder-meta">Selected: <t t-esc="state.simulateRecordName"/></div>
+                    </t>
+                    <button class="btn btn-outline-primary" t-on-click="runSimulation" t-att-disabled="!state.simulateRecordId">Run Simulation</button>
+                    <t t-if="state.simulateWarning">
+                        <div class="we-panel-warning">Warning: <t t-esc="state.simulateWarning"/></div>
+                    </t>
+                    <t t-if="state.simulateResults">
+                        <div class="we-panel-subtitle">Visited States</div>
+                        <t t-foreach="state.simulateResults.visited" t-as="st" t-key="st.state_id">
+                            <div class="we-diff-item">• <t t-esc="st.state"/> (<t t-esc="st.type"/>)</div>
+                        </t>
+                        <div class="we-panel-subtitle">Conditions</div>
+                        <t t-foreach="state.simulateResults.evaluated" t-as="cond" t-key="cond.transition_id">
+                            <div class="we-diff-item">
+                                <t t-esc="cond.expression"/> → <t t-esc="cond.result"/>
+                            </div>
+                        </t>
+                        <div class="we-panel-subtitle">Final State</div>
+                        <div class="we-diff-item">
+                            <t t-if="state.simulateResults.final_state"><t t-esc="state.simulateResults.final_state.state"/></t>
+                            <t t-else="">None</t>
+                        </div>
+                    </t>
+                </div>
+                <div class="we-modal-actions">
+                    <button type="button" class="btn btn-secondary" t-on-click="closeSimulateModal">Close</button>
                 </div>
             </div>
         </t>

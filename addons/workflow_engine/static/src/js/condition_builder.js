@@ -1,59 +1,21 @@
 /** @odoo-module **/
 
 function buildLiteral(value, fieldType) {
-    if (fieldType === "boolean") {
-        return value === "true" || value === "1" || value === true ? "True" : "False";
+    if (fieldType !== "boolean") {
+        return null;
     }
-    if (fieldType === "integer" || fieldType === "float" || fieldType === "monetary") {
-        const numberValue = parseFloat(value || "0");
-        return Number.isNaN(numberValue) ? "0" : numberValue.toString();
-    }
-    if (fieldType === "many2one" || fieldType === "many2many" || fieldType === "one2many") {
-        const numberValue = parseInt(value || "0", 10);
-        return Number.isNaN(numberValue) ? "0" : numberValue.toString();
-    }
-    return JSON.stringify(value || "");
-}
-
-function buildListLiteral(value, fieldType) {
-    const parts = (value || "").split(",").map((item) => item.trim()).filter(Boolean);
-    if (!parts.length) {
-        return "[]";
-    }
-    if (fieldType === "integer" || fieldType === "float" || fieldType === "monetary" || fieldType === "many2one") {
-        return `[${parts.map((p) => buildLiteral(p, fieldType)).join(", ")}]`;
-    }
-    return `[${parts.map((p) => buildLiteral(p, "char")).join(", ")}]`;
+    return value === "true" || value === "True" || value === "1" || value === true ? "True" : "False";
 }
 
 function buildRuleExpression(rule, info) {
     const fieldExpr = `record.${rule.field}`;
     const operator = rule.operator === "=" ? "==" : rule.operator;
-    const value = rule.value;
-    if (operator === "is_set") {
-        return `bool(${fieldExpr})`;
+    const literal = buildLiteral(rule.value, info.type);
+    if (!literal) {
+        return null;
     }
-    if (operator === "is_not_set") {
-        return `not ${fieldExpr}`;
-    }
-    if (operator === "contains") {
-        if (info.type === "many2many" || info.type === "one2many") {
-            const literal = buildLiteral(value, "number");
-            return `${literal} in ${fieldExpr}.ids`;
-        }
-        const literal = buildLiteral(value, info.type);
-        return `${literal} in (${fieldExpr} or '')`;
-    }
-    if (operator === "in" || operator === "not_in") {
-        const listLiteral = buildListLiteral(value, info.type);
-        return `${fieldExpr} ${operator === "in" ? "in" : "not in"} ${listLiteral}`;
-    }
-    const literal = buildLiteral(value, info.type);
-    if (info.type === "many2one") {
-        return `${fieldExpr}.id ${operator} ${literal}`;
-    }
-    if (info.type === "many2many" || info.type === "one2many") {
-        return `${literal} ${operator === "!=" ? "not in" : "in"} ${fieldExpr}.ids`;
+    if (operator !== "==" && operator !== "!=") {
+        return null;
     }
     return `${fieldExpr} ${operator} ${literal}`;
 }
@@ -93,14 +55,14 @@ export function parseExpressionToRules(expression) {
             logic = token.toLowerCase();
             continue;
         }
-        const match = token.match(/record\.([a-zA-Z0-9_\.]+)\s*(==|=|!=|>=|<=|>|<|in|not in)\s*(.+)/);
+        const match = token.match(/record\.([a-zA-Z0-9_]+)\s*(==|=|!=)\s*(True|False)/);
         if (!match) {
             continue;
         }
-        const field = match[1].split(".")[0];
+        const field = match[1];
         const operator = match[2] === "==" ? "=" : match[2];
         const value = match[3].replace(/^\s+|\s+$/g, "");
-        rules.push({ field, operator, value: value.replace(/^['\"]|['\"]$/g, ""), logic });
+        rules.push({ field, operator, value, logic });
         logic = "and";
     }
     return rules.length ? rules : [{ field: "", operator: "=", value: "", logic: "and" }];

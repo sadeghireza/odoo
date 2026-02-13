@@ -9,6 +9,7 @@ class WorkflowDesigner extends Component {
     setup() {
         this.orm = useService("orm");
         this.notification = useService("notification");
+        this.actionService = useService("action");
         this.svgRef = useRef("svg");
         this.versionStorageKey = "workflow_engine.designer.version_id";
         this.state = useState({
@@ -27,6 +28,7 @@ class WorkflowDesigner extends Component {
             targetModel: null,
             modelFields: [],
             modelFieldsMap: {},
+            conditionFields: [],
             builderRules: [
                 { id: 1, field: "", operator: "=", value: "", logic: "and" },
             ],
@@ -44,6 +46,7 @@ class WorkflowDesigner extends Component {
                 approval_mode: "sequential",
                 parallel_policy: "all",
                 min_approvals: 1,
+                end_type: "",
             },
             transitionForm: {
                 name: "",
@@ -60,10 +63,38 @@ class WorkflowDesigner extends Component {
             dragOffset: { x: 0, y: 0 },
             loading: false,
             gridSize: 20,
+            validationWarnings: [],
+            diffModalOpen: false,
+            diffVersionA: null,
+            diffVersionB: null,
+            diffResults: null,
+            simulateModalOpen: false,
+            simulateRecordId: null,
+            simulateResults: null,
+            simulateWarning: null,
+            simulateQuery: "",
+            simulateOptions: [],
+            simulateRecordName: "",
+            impactInfo: null,
         });
 
         onWillStart(async () => {
             await this.loadVersions();
+        });
+    }
+
+    openActionsForState() {
+        const stateId = this.state.selectedStateId;
+        if (!stateId) {
+            return;
+        }
+        this.actionService.doAction({
+            type: "ir.actions.act_window",
+            name: "Actions",
+            res_model: "workflow.action",
+            view_mode: "list,form",
+            domain: [["state_id", "=", stateId]],
+            context: { default_state_id: stateId },
         });
     }
 
@@ -107,6 +138,7 @@ class WorkflowDesigner extends Component {
                 "approval_mode",
                 "parallel_policy",
                 "min_approvals",
+                "end_type",
                 "sequence",
                 "ui_x",
                 "ui_y",
@@ -134,6 +166,7 @@ class WorkflowDesigner extends Component {
         if (this.state.selectedTransitionId && !this.state.builderDirty) {
             this.selectTransition(this.state.selectedTransitionId);
         }
+        this.state.validationWarnings = this.computeValidationWarnings(states, transitions);
         this.state.loading = false;
     }
 
@@ -148,6 +181,7 @@ class WorkflowDesigner extends Component {
             this.state.targetModel = null;
             this.state.modelFields = [];
             this.state.modelFieldsMap = {};
+            this.state.conditionFields = [];
             return;
         }
         const process = await this.orm.read(
@@ -160,6 +194,7 @@ class WorkflowDesigner extends Component {
             this.state.targetModel = null;
             this.state.modelFields = [];
             this.state.modelFieldsMap = {};
+            this.state.conditionFields = [];
             return;
         }
         const modelInfo = await this.orm.read(
@@ -176,6 +211,7 @@ class WorkflowDesigner extends Component {
         if (!modelName) {
             this.state.modelFields = [];
             this.state.modelFieldsMap = {};
+            this.state.conditionFields = [];
             return;
         }
         const fields = await this.orm.call(
@@ -193,6 +229,7 @@ class WorkflowDesigner extends Component {
         }));
         fieldList.sort((a, b) => a.string.localeCompare(b.string));
         this.state.modelFields = fieldList;
+        this.state.conditionFields = fieldList.filter((field) => field.type === "boolean");
         const fieldMap = {};
         for (const field of fieldList) {
             fieldMap[field.name] = field;
@@ -220,6 +257,108 @@ class WorkflowDesigner extends Component {
             }
         }
         return positions;
+    }
+
+    computeValidationWarnings(states, transitions) {
+        const warnings = [];
+        const startStates = states.filter((s) => s.type === "start");
+        const endStates = states.filter((s) => s.type === "end");
+        if (startStates.length !== 1) {
+            warnings.push("Exactly one START state is required.");
+        }
+        if (!endStates.length) {
+            warnings.push("At least one END state is required.");
+        } else {
+            const missingEndType = endStates.filter((s) => !s.end_type);
+            if (missingEndType.length) {
+                warnings.push(
+                    `END states need an end type: ${missingEndType.map((s) => s.name).join(", ")}.`
+                );
+            }
+        }
+        const outgoing = {};
+        for (const tr of transitions) {
+            const sourceId = tr.source_state_id?.[0];
+            if (!sourceId) {
+                continue;
+            }
+            if (!outgoing[sourceId]) {
+                outgoing[sourceId] = [];
+            }
+            outgoing[sourceId].push(tr);
+        }
+        for (const state of states.filter((s) => s.type !== "end")) {
+            if (!outgoing[state.id] || !outgoing[state.id].length) {
+                warnings.push(`State "${state.name}" has no outgoing transition.`);
+            }
+        }
+        for (const state of states.filter((s) => s.type === "condition")) {
+            const branches = outgoing[state.id] || [];
+            const defaults = branches.filter((t) => t.branch_is_else);
+            const trues = branches.filter((t) => !t.branch_is_else);
+            if (defaults.length !== 1) {
+                warnings.push(`Gateway "${state.name}" must have exactly one DEFAULT branch.`);
+            }
+            if (!trues.length) {
+                warnings.push(`Gateway "${state.name}" needs at least one TRUE branch.`);
+            }
+        }
+        const reachable = new Set();
+        const stack = startStates.map((s) => s.id);
+        while (stack.length) {
+            const current = stack.pop();
+            if (reachable.has(current)) {
+                continue;
+            }
+            reachable.add(current);
+            const edges = outgoing[current] || [];
+            for (const edge of edges) {
+                const destId = edge.dest_state_id?.[0];
+                if (destId && !reachable.has(destId)) {
+                    stack.push(destId);
+                }
+            }
+        }
+        const unreachable = states.filter((s) => !reachable.has(s.id));
+        if (unreachable.length) {
+            warnings.push(
+                `Unreachable states: ${unreachable.map((s) => s.name).join(", ")}.`
+            );
+        }
+        const reverse = {};
+        for (const tr of transitions) {
+            const destId = tr.dest_state_id?.[0];
+            const srcId = tr.source_state_id?.[0];
+            if (!destId || !srcId) {
+                continue;
+            }
+            if (!reverse[destId]) {
+                reverse[destId] = [];
+            }
+            reverse[destId].push(srcId);
+        }
+        const canReachEnd = new Set();
+        const endStack = endStates.map((s) => s.id);
+        while (endStack.length) {
+            const current = endStack.pop();
+            if (canReachEnd.has(current)) {
+                continue;
+            }
+            canReachEnd.add(current);
+            const sources = reverse[current] || [];
+            for (const srcId of sources) {
+                if (!canReachEnd.has(srcId)) {
+                    endStack.push(srcId);
+                }
+            }
+        }
+        const deadEnds = states.filter((s) => reachable.has(s.id) && !canReachEnd.has(s.id));
+        if (deadEnds.length) {
+            warnings.push(
+                `States without END path: ${deadEnds.map((s) => s.name).join(", ")}.`
+            );
+        }
+        return warnings;
     }
 
     getStateById(stateId) {
@@ -288,6 +427,140 @@ class WorkflowDesigner extends Component {
         this.notification.add("Version activated", { type: "success" });
     }
 
+    openDiffModal() {
+        const versions = this.state.versions || [];
+        if (!versions.length) {
+            return;
+        }
+        this.state.diffVersionA = this.state.selectedVersionId || versions[0].id;
+        const other = versions.find((v) => v.id !== this.state.diffVersionA);
+        this.state.diffVersionB = other ? other.id : this.state.diffVersionA;
+        this.state.diffResults = null;
+        this.state.diffModalOpen = true;
+    }
+
+    closeDiffModal() {
+        this.state.diffModalOpen = false;
+        this.state.diffResults = null;
+    }
+
+    async runDiff() {
+        const versionA = this.state.diffVersionA;
+        const versionB = this.state.diffVersionB;
+        if (!versionA || !versionB) {
+            return;
+        }
+        const [statesA, statesB] = await Promise.all([
+            this.orm.searchRead("workflow.state", [["version_id", "=", versionA]], ["name", "code", "type"]),
+            this.orm.searchRead("workflow.state", [["version_id", "=", versionB]], ["name", "code", "type"]),
+        ]);
+        const [transA, transB] = await Promise.all([
+            this.orm.searchRead("workflow.transition", [["version_id", "=", versionA]], ["name", "code", "source_state_id", "dest_state_id", "trigger", "transition_type", "branch_expression", "branch_is_else"]),
+            this.orm.searchRead("workflow.transition", [["version_id", "=", versionB]], ["name", "code", "source_state_id", "dest_state_id", "trigger", "transition_type", "branch_expression", "branch_is_else"]),
+        ]);
+        const keyForState = (state) => state.code || state.name || String(state.id);
+        const statesMapA = Object.fromEntries(statesA.map((s) => [keyForState(s), s]));
+        const statesMapB = Object.fromEntries(statesB.map((s) => [keyForState(s), s]));
+
+        const addedStates = Object.keys(statesMapB).filter((k) => !statesMapA[k]).map((k) => statesMapB[k]);
+        const removedStates = Object.keys(statesMapA).filter((k) => !statesMapB[k]).map((k) => statesMapA[k]);
+
+        const stateIdToKeyA = Object.fromEntries(statesA.map((s) => [s.id, keyForState(s)]));
+        const stateIdToKeyB = Object.fromEntries(statesB.map((s) => [s.id, keyForState(s)]));
+        const transitionKey = (tr, map) => {
+            const source = map[tr.source_state_id?.[0]] || String(tr.source_state_id?.[0] || "");
+            const dest = map[tr.dest_state_id?.[0]] || String(tr.dest_state_id?.[0] || "");
+            const name = tr.code || tr.name || "transition";
+            return `${source}::${dest}::${name}`;
+        };
+        const transMapA = Object.fromEntries(transA.map((t) => [transitionKey(t, stateIdToKeyA), t]));
+        const transMapB = Object.fromEntries(transB.map((t) => [transitionKey(t, stateIdToKeyB), t]));
+
+        const addedTransitions = Object.keys(transMapB).filter((k) => !transMapA[k]).map((k) => transMapB[k]);
+        const removedTransitions = Object.keys(transMapA).filter((k) => !transMapB[k]).map((k) => transMapA[k]);
+
+        const modifiedTransitions = [];
+        for (const key of Object.keys(transMapA)) {
+            const a = transMapA[key];
+            const b = transMapB[key];
+            if (!b) {
+                continue;
+            }
+            if (
+                a.trigger !== b.trigger
+                || a.transition_type !== b.transition_type
+                || (a.branch_expression || "") !== (b.branch_expression || "")
+                || Boolean(a.branch_is_else) !== Boolean(b.branch_is_else)
+            ) {
+                modifiedTransitions.push({ key, before: a, after: b });
+            }
+        }
+
+        this.state.diffResults = {
+            addedStates,
+            removedStates,
+            addedTransitions,
+            removedTransitions,
+            modifiedTransitions,
+        };
+    }
+
+    openSimulateModal() {
+        this.state.simulateModalOpen = true;
+        this.state.simulateRecordId = null;
+        this.state.simulateRecordName = "";
+        this.state.simulateQuery = "";
+        this.state.simulateOptions = [];
+        this.state.simulateResults = null;
+        this.state.simulateWarning = null;
+    }
+
+    closeSimulateModal() {
+        this.state.simulateModalOpen = false;
+        this.state.simulateResults = null;
+        this.state.simulateWarning = null;
+    }
+
+    async searchSimulationRecords(ev) {
+        const query = ev.target.value || "";
+        this.state.simulateQuery = query;
+        if (!this.state.targetModel?.model || query.length < 2) {
+            this.state.simulateOptions = [];
+            return;
+        }
+        const results = await this.orm.call(
+            this.state.targetModel.model,
+            "name_search",
+            [query, [], "ilike", 10]
+        );
+        this.state.simulateOptions = (results || []).map((item) => ({ id: item[0], name: item[1] }));
+    }
+
+    selectSimulationRecord(ev) {
+        const recordId = parseInt(ev.currentTarget?.dataset?.recordId || "0", 10);
+        if (!recordId) {
+            return;
+        }
+        const record = this.state.simulateOptions.find((opt) => opt.id === recordId);
+        this.state.simulateRecordId = recordId;
+        this.state.simulateRecordName = record?.name || "";
+    }
+
+    async runSimulation() {
+        const versionId = this.state.selectedVersionId;
+        if (!versionId || !this.state.simulateRecordId) {
+            this.state.simulateWarning = "Please select a record to simulate.";
+            return;
+        }
+        const results = await this.orm.call(
+            "workflow.process.version",
+            "simulate",
+            [versionId, this.state.simulateRecordId]
+        );
+        this.state.simulateResults = results;
+        this.state.simulateWarning = results?.stopped ? (results?.reason || "Simulation stopped.") : null;
+    }
+
     toggleLinkMode() {
         this.state.linkMode = !this.state.linkMode;
         this.state.linkSourceId = null;
@@ -316,6 +589,7 @@ class WorkflowDesigner extends Component {
             approval_mode: state.approval_mode || "sequential",
             parallel_policy: state.parallel_policy || "all",
             min_approvals: state.min_approvals || 1,
+            end_type: state.end_type || "",
         };
     }
 
@@ -370,6 +644,7 @@ class WorkflowDesigner extends Component {
             approval_mode: this.state.stateForm.approval_mode,
             parallel_policy: this.state.stateForm.parallel_policy,
             min_approvals: this.state.stateForm.min_approvals,
+            end_type: this.state.stateForm.end_type || false,
         };
         await this.orm.write("workflow.state", [stateId], vals);
         this.notification.add("State saved", { type: "success" });
@@ -399,10 +674,16 @@ class WorkflowDesigner extends Component {
             return;
         }
         this.state.stateForm[field] = ev.target.value;
-        if (field === "type" && ev.target.value === "condition") {
-            this.state.stateForm.approval_mode = "none";
-            this.state.stateForm.parallel_policy = "all";
-            this.state.stateForm.min_approvals = 1;
+        if (field === "type") {
+            const type = ev.target.value;
+            if (type === "condition" || type === "manual" || type === "action" || type === "end" || type === "start") {
+                this.state.stateForm.approval_mode = "none";
+                this.state.stateForm.parallel_policy = "all";
+                this.state.stateForm.min_approvals = 1;
+            }
+            if (type !== "end") {
+                this.state.stateForm.end_type = "";
+            }
         }
     }
 
@@ -420,7 +701,7 @@ class WorkflowDesigner extends Component {
             return;
         }
         await this.selectTransition(transitionId);
-        this.openBuilderModal();
+        await this.openBuilderModal();
     }
 
     updateTransitionField(ev) {
@@ -431,7 +712,7 @@ class WorkflowDesigner extends Component {
         this.state.transitionForm[field] = ev.target.value;
     }
 
-    openBuilderModal() {
+    async openBuilderModal() {
         const transitionId = this.state.selectedTransitionId;
         if (!transitionId) {
             this.notification.add("Select a transition first", { type: "warning" });
@@ -444,6 +725,20 @@ class WorkflowDesigner extends Component {
             this.notification.add("Branch conditions are only available on condition nodes", { type: "warning" });
             return;
         }
+        const versionId = this.state.selectedVersionId;
+        const instanceCount = versionId
+            ? await this.orm.searchCount("workflow.instance", [
+                ["version_id", "=", versionId],
+                ["status", "=", "running"],
+            ])
+            : 0;
+        const affected = this.state.transitions.filter(
+            (t) => t.source_state_id?.[0] === sourceState.id
+        );
+        this.state.impactInfo = {
+            instanceCount,
+            transitionNames: affected.map((t) => t.name || t.id),
+        };
         const cached = this.state.builderRulesMap[transitionId];
         const expression = this.state.transitionForm.branch_expression || "";
         const rules = cached
@@ -470,6 +765,7 @@ class WorkflowDesigner extends Component {
         this.state.builderModalOpen = false;
         this.state.builderDraftRules = [];
         this.state.builderDraftIsElse = false;
+        this.state.impactInfo = null;
     }
 
     addRule() {
@@ -521,6 +817,7 @@ class WorkflowDesigner extends Component {
             this.state.transitionForm.branch_is_else = true;
             this.state.builderRules = [];
             this.state.builderRulesMap[transitionId] = { rules: [], dirty: false };
+            this.state.validationWarnings = this.computeValidationWarnings(this.state.states, this.state.transitions);
             this.notification.add("Branch saved", { type: "success" });
             this.state.builderDirty = false;
             this.state.builderModalOpen = false;
@@ -544,10 +841,6 @@ class WorkflowDesigner extends Component {
                 invalidIndex = index;
                 invalidReason = !fieldValue ? "field" : "operator";
                 return true;
-            }
-            if (operatorValue === "is_set" || operatorValue === "is_not_set") {
-                validCount += 1;
-                return false;
             }
             if (!hasValue) {
                 invalidIndex = index;
@@ -585,6 +878,7 @@ class WorkflowDesigner extends Component {
         const savedRules = draftRules.map((rule) => ({ ...rule }));
         this.state.builderRules = savedRules;
         this.state.builderRulesMap[transitionId] = { rules: savedRules, dirty: false };
+        this.state.validationWarnings = this.computeValidationWarnings(this.state.states, this.state.transitions);
         const elseExists = this.state.transitions.some((t) =>
             t.source_state_id?.[0] === sourceId && t.branch_is_else
         );

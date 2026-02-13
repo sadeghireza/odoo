@@ -95,6 +95,7 @@
                     <field name="version_id"/>
                     <field name="type"/>
                     <field name="approval_mode"/>
+                    <field name="end_type"/>
                 </list>
             </field>
         </record>
@@ -112,9 +113,10 @@
                         </group>
                         <group>
                             <field name="type"/>
-                            <field name="approval_mode"/>
-                            <field name="parallel_policy"/>
-                            <field name="min_approvals"/>
+                            <field name="approval_mode" modifiers="{'invisible': [('type', 'not in', ('task', 'approval'))]}"/>
+                            <field name="parallel_policy" modifiers="{'invisible': ['|', ('type', 'not in', ('task', 'approval')), ('approval_mode', '!=', 'parallel')]}"/>
+                            <field name="min_approvals" modifiers="{'invisible': ['|', ('type', 'not in', ('task', 'approval')), ('parallel_policy', '!=', 'min')]}"/>
+                            <field name="end_type" modifiers="{'invisible': [('type', '!=', 'end')], 'required': [('type', '=', 'end')]}"/>
                         </group>
                         <group>
                             <field name="sla_rule_id"/>
@@ -127,6 +129,18 @@
                         <notebook>
                             <page string="Role Rules">
                                 <field name="role_rule_ids"/>
+                            </page>
+                            <page string="Actions" modifiers="{'invisible': [('type', '!=', 'action')]}">
+                                <field name="action_ids" context="{'default_state_id': id}">
+                                    <list editable="bottom">
+                                        <field name="sequence"/>
+                                        <field name="action_type"/>
+                                        <field name="field_name"/>
+                                        <field name="field_value"/>
+                                        <field name="message_body"/>
+                                        <field name="status_value"/>
+                                    </list>
+                                </field>
                             </page>
                         </notebook>
                     </sheet>
@@ -227,6 +241,48 @@
         <record id="action_workflow_role_rule" model="ir.actions.act_window">
             <field name="name">Role Rules</field>
             <field name="res_model">workflow.role.rule</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_action_tree" model="ir.ui.view">
+            <field name="name">workflow.action.tree</field>
+            <field name="model">workflow.action</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="state_id"/>
+                    <field name="sequence"/>
+                    <field name="action_type"/>
+                    <field name="field_name"/>
+                    <field name="field_value"/>
+                    <field name="message_body"/>
+                    <field name="status_value"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_action_form" model="ir.ui.view">
+            <field name="name">workflow.action.form</field>
+            <field name="model">workflow.action</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="state_id"/>
+                            <field name="sequence"/>
+                            <field name="action_type"/>
+                        </group>
+                        <group>
+                            <field name="field_name"/>
+                            <field name="field_value"/>
+                            <field name="message_body"/>
+                            <field name="status_value"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_action" model="ir.actions.act_window">
+            <field name="name">Actions</field>
+            <field name="res_model">workflow.action</field>
             <field name="view_mode">list,form</field>
         </record>
 

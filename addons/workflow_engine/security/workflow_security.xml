@@ -18,7 +18,7 @@
             <field name="model_id" ref="model_workflow_instance"/>
             <field name="groups" eval="[(4, ref('workflow_engine.group_workflow_operator'))]"/>
             <field name="domain_force">
-                ['|', ('started_by', '=', user.id), ('workitem_ids.user_id', '=', user.id)]
+                ['&amp;', ('company_id', 'in', user.company_ids.ids), '|', ('started_by', '=', user.id), ('workitem_ids.user_id', '=', user.id)]
             </field>
         </record>
 
@@ -26,14 +26,14 @@
             <field name="name">Workflow Work Item: operator access</field>
             <field name="model_id" ref="model_workflow_workitem"/>
             <field name="groups" eval="[(4, ref('workflow_engine.group_workflow_operator'))]"/>
-            <field name="domain_force">[('user_id', '=', user.id)]</field>
+            <field name="domain_force">['&amp;', ('company_id', 'in', user.company_ids.ids), ('user_id', '=', user.id)]</field>
         </record>
 
         <record id="rule_workflow_audit_auditor" model="ir.rule">
             <field name="name">Workflow Audit: auditor read</field>
             <field name="model_id" ref="model_workflow_audit"/>
             <field name="groups" eval="[(4, ref('workflow_engine.group_workflow_auditor'))]"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="domain_force">['&amp;', ('company_id', 'in', user.company_ids.ids), (1, '=', 1)]</field>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>
@@ -44,14 +44,14 @@
             <field name="name">Workflow Definition: admin access</field>
             <field name="model_id" ref="model_workflow_process"/>
             <field name="groups" eval="[(4, ref('workflow_engine.group_workflow_admin'))]"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="domain_force">['&amp;', ('company_id', 'in', user.company_ids.ids), (1, '=', 1)]</field>
         </record>
 
         <record id="rule_workflow_instance_auditor" model="ir.rule">
             <field name="name">Workflow Instance: auditor read</field>
             <field name="model_id" ref="model_workflow_instance"/>
             <field name="groups" eval="[(4, ref('workflow_engine.group_workflow_auditor'))]"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="domain_force">['&amp;', ('company_id', 'in', user.company_ids.ids), (1, '=', 1)]</field>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>
@@ -61,57 +61,62 @@
         <record id="rule_workflow_company_process" model="ir.rule">
             <field name="name">Workflow Process: company access</field>
             <field name="model_id" ref="model_workflow_process"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_version" model="ir.rule">
             <field name="name">Workflow Version: company access</field>
             <field name="model_id" ref="model_workflow_process_version"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_state" model="ir.rule">
             <field name="name">Workflow State: company access</field>
             <field name="model_id" ref="model_workflow_state"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_transition" model="ir.rule">
             <field name="name">Workflow Transition: company access</field>
             <field name="model_id" ref="model_workflow_transition"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_instance" model="ir.rule">
             <field name="name">Workflow Instance: company access</field>
             <field name="model_id" ref="model_workflow_instance"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_workitem" model="ir.rule">
             <field name="name">Workflow Work Item: company access</field>
             <field name="model_id" ref="model_workflow_workitem"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_audit" model="ir.rule">
             <field name="name">Workflow Audit: company access</field>
             <field name="model_id" ref="model_workflow_audit"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_sla_rule" model="ir.rule">
             <field name="name">Workflow SLA Rule: company access</field>
             <field name="model_id" ref="model_workflow_sla_rule"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_sla_timer" model="ir.rule">
             <field name="name">Workflow SLA Timer: company access</field>
             <field name="model_id" ref="model_workflow_sla_timer"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_delegation" model="ir.rule">
             <field name="name">Workflow Delegation: company access</field>
             <field name="model_id" ref="model_workflow_delegation"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
         <record id="rule_workflow_company_api_key" model="ir.rule">
             <field name="name">Workflow API Key: company access</field>
             <field name="model_id" ref="model_workflow_api_key"/>
-            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
+        </record>
+        <record id="rule_workflow_company_action" model="ir.rule">
+            <field name="name">Workflow Action: company access</field>
+            <field name="model_id" ref="model_workflow_action"/>
+            <field name="domain_force">[('company_id', 'in', user.company_ids.ids)]</field>
         </record>
     </data>
 </odoo>

@@ -15,7 +15,12 @@ class WorkflowSlaRule(models.Model):
     )
     duration_hours = fields.Float(required=True, default=24.0)
     escalation_action = fields.Selection(
-        [("notify", "Notify"), ("reassign", "Reassign")],
+        [
+            ("notify", "Notify"),
+            ("reassign", "Escalate to Role"),
+            ("escalate_to_role", "Escalate to Role"),
+            ("auto_transition", "Auto Transition"),
+        ],
         default="notify",
         required=True,
     )
@@ -50,6 +55,14 @@ class WorkflowSlaTimer(models.Model):
         index=True,
     )
     last_escalation_date = fields.Datetime()
+
+    def _auto_init(self):
+        res = super()._auto_init()
+        self._cr.execute(
+            "CREATE INDEX IF NOT EXISTS workflow_sla_timer_status_due_date_idx "
+            "ON %s (status, due_date)" % self._table
+        )
+        return res
 
     def mark_escalated(self):
         self.write({"status": "escalated", "last_escalation_date": fields.Datetime.now()})

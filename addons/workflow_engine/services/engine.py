@@ -4,6 +4,11 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools.safe_eval import safe_eval
 
+from odoo.addons.workflow_engine.models.workflow_state import (
+    SafeRecordProxy,
+    validate_condition_expression,
+)
+
 _logger = logging.getLogger(__name__)
 
 
@@ -25,6 +30,17 @@ class WorkflowEngine(models.AbstractModel):
             "time": fields.Datetime,
         }
 
+    def _build_condition_eval_context(self, record):
+        return {
+            "record": SafeRecordProxy(record),
+            "user": {"id": self.env.user.id},
+            "True": True,
+            "False": False,
+        }
+
+    def _is_approval_state(self, state):
+        return state.type in ("task", "approval")
+
     def _log_event(self, event, instance, **payload):
         _logger.info(
             "workflow_event=%s instance_id=%s process_id=%s version_id=%s state_id=%s payload=%s",
@@ -38,7 +54,7 @@ class WorkflowEngine(models.AbstractModel):
 
     def start_for_record(self, record, process_code):
         if not record or not record.exists():
-            raise UserError("Target record not found.")
+            raise UserError("The target record was not found.")
         record.check_access("read")
         process = self.env["workflow.process"].search([("code", "=", process_code)], limit=1)
         version = process.active_version_id
@@ -49,12 +65,12 @@ class WorkflowEngine(models.AbstractModel):
                 limit=1,
             )
         if not process or not version:
-            raise UserError("No active workflow version for process.")
+            raise UserError("Please activate a workflow version before starting this process.")
         if process.target_model_id and process.target_model_id.model != record._name:
-            raise UserError("Record model does not match workflow target model.")
+            raise UserError("This workflow cannot be started for this record type.")
         start_state = version.get_start_state()
         if not start_state:
-            raise UserError("Workflow version has no start state.")
+            raise UserError("This workflow version has no START state. Please add one.")
         instance = self.env["workflow.instance"].create(
             {
                 "name": f"{process.name} - {record._name}({record.id})",
@@ -79,10 +95,10 @@ class WorkflowEngine(models.AbstractModel):
     def trigger_transition(self, instance, transition_id=None, comment=None):
         instance.ensure_one()
         if instance.status != "running":
-            raise UserError("Workflow is not running.")
+            raise UserError("This workflow is not running.")
         if instance.state_id.type == "condition":
             record = self.env[instance.res_model].browse(instance.res_id)
-            eval_context = self._build_eval_context(instance, record)
+            eval_context = self._build_condition_eval_context(record)
             return self._evaluate_condition_node(instance, instance.state_id, eval_context)
         transitions = instance.version_id.transition_ids.filtered(
             lambda t: t.source_state_id == instance.state_id and t.trigger == "manual"
@@ -90,15 +106,15 @@ class WorkflowEngine(models.AbstractModel):
         if transition_id:
             transitions = transitions.filtered(lambda t: t.id == transition_id)
         if not transitions:
-            raise UserError("No manual transition available.")
+            raise UserError("No manual transition is available from the current state.")
         for transition in transitions.sorted("sequence"):
             return self._move_to_state(instance, transition, comment=comment)
-        raise UserError("No transition conditions matched.")
+        raise UserError("No transition conditions matched. Please review the conditions.")
 
     def complete_workitem(self, workitem, approved=True, comment=None):
         workitem.ensure_one()
         if workitem.status not in ("pending", "waiting"):
-            raise UserError("Work item already completed.")
+            raise UserError("This work item is already completed.")
         workitem.write(
             {
                 "status": "approved" if approved else "rejected",
@@ -132,10 +148,11 @@ class WorkflowEngine(models.AbstractModel):
         ).sorted("sequence")
         else_transition = transitions.filtered(lambda t: t.branch_is_else)
         if not else_transition:
-            raise UserError("Condition node must define an ELSE branch.")
+            raise UserError("Condition states must have exactly one DEFAULT branch.")
         for transition in transitions.filtered(lambda t: not t.branch_is_else):
             if transition.branch_expression:
                 try:
+                    validate_condition_expression(transition.branch_expression)
                     if safe_eval(transition.branch_expression, eval_context):
                         return self._move_to_state(instance, transition)
                 except Exception:
@@ -144,7 +161,7 @@ class WorkflowEngine(models.AbstractModel):
                         instance.id,
                         transition.id,
                     )
-                    raise UserError("Condition evaluation failed.")
+                    raise UserError("Condition evaluation failed. Please review the condition.")
         return self._move_to_state(instance, else_transition[0])
 
     def _move_to_state(self, instance, transition, comment=None):
@@ -172,15 +189,13 @@ class WorkflowEngine(models.AbstractModel):
 
     def _enter_state(self, instance, state):
         record = self.env[instance.res_model].browse(instance.res_id)
-        eval_context = self._build_eval_context(instance, record)
         if state.type == "condition":
+            eval_context = self._build_condition_eval_context(record)
             return self._evaluate_condition_node(instance, state, eval_context)
-        assignment = self.env["workflow.assignment"].compute_assignees(
-            state, record, instance, eval_context
-        )
         if state.type == "end":
             instance.status = "done"
             instance.end_date = fields.Datetime.now()
+            instance.end_type = state.end_type
             self._log_event("complete", instance)
             self.log_action(
                 instance,
@@ -190,18 +205,37 @@ class WorkflowEngine(models.AbstractModel):
                 comment=None,
             )
             return True
-        if state.approval_mode != "none":
+        eval_context = self._build_eval_context(instance, record)
+        assignment = self.env["workflow.assignment"].compute_assignees(
+            state, record, instance, eval_context
+        )
+        if state.type == "action":
+            self._execute_actions(instance, state, record)
+            return self._auto_transition(instance, eval_context)
+        if state.type == "manual":
             if not assignment:
-                raise UserError("No assignees resolved for approval state.")
+                raise UserError("No assignees found for this task. Please configure role rules.")
             self._create_workitems(instance, state, assignment)
-        else:
-            self._auto_transition(instance, eval_context)
-        self.env["workflow.sla.service"].create_timer(instance, state)
+            self.env["workflow.sla.service"].create_timer(instance, state)
+            return True
+        if self._is_approval_state(state):
+            if state.approval_mode != "none":
+                if not assignment:
+                    raise UserError("No assignees found for this step. Please configure role rules.")
+                self._create_workitems(instance, state, assignment)
+            else:
+                self._auto_transition(instance, eval_context)
+            self.env["workflow.sla.service"].create_timer(instance, state)
+            return True
+        return self._auto_transition(instance, eval_context)
         return True
 
     def _auto_transition(self, instance, eval_context):
         if instance.state_id.type == "condition":
-            return self._evaluate_condition_node(instance, instance.state_id, eval_context)
+            condition_context = self._build_condition_eval_context(
+                self.env[instance.res_model].browse(instance.res_id)
+            )
+            return self._evaluate_condition_node(instance, instance.state_id, condition_context)
         transitions = instance.version_id.transition_ids.filtered(
             lambda t: t.source_state_id == instance.state_id and t.trigger == "auto"
         ).sorted("sequence")
@@ -234,6 +268,75 @@ class WorkflowEngine(models.AbstractModel):
                     }
                 )
         self.env["workflow.workitem"].create(vals_list)
+
+    def _execute_actions(self, instance, state, record):
+        actions = state.action_ids.sorted("sequence")
+        for action in actions:
+            if action.action_type == "set_field":
+                self._apply_set_field(record, action.field_name, action.field_value)
+                self.log_action(
+                    instance,
+                    action="action_set_field",
+                    from_state=state,
+                    to_state=state,
+                    comment=None,
+                    payload={"field": action.field_name, "value": action.field_value},
+                )
+            elif action.action_type == "add_message":
+                if hasattr(record, "message_post"):
+                    record.message_post(body=action.message_body)
+                self.log_action(
+                    instance,
+                    action="action_add_message",
+                    from_state=state,
+                    to_state=state,
+                    comment=None,
+                    payload={"message": action.message_body},
+                )
+            elif action.action_type == "change_status":
+                self._apply_change_status(record, action.status_value)
+                self.log_action(
+                    instance,
+                    action="action_change_status",
+                    from_state=state,
+                    to_state=state,
+                    comment=None,
+                    payload={"status": action.status_value},
+                )
+
+    def _apply_set_field(self, record, field_name, raw_value):
+        if not field_name or field_name not in record._fields:
+            raise UserError("The selected field is not available on this record.")
+        field = record._fields[field_name]
+        value = raw_value
+        if field.type == "boolean":
+            value = str(raw_value).lower() in ("1", "true", "yes", "y")
+        elif field.type in ("integer", "float", "monetary"):
+            try:
+                value = float(raw_value)
+                if field.type == "integer":
+                    value = int(value)
+            except (TypeError, ValueError):
+                raise UserError("Please provide a valid number for the field value.")
+        elif field.type == "many2one":
+            try:
+                value = int(raw_value)
+            except (TypeError, ValueError):
+                raise UserError("Please provide a valid record ID for the field value.")
+        elif field.type in ("many2many", "one2many"):
+            raise UserError("This action does not support list fields.")
+        record.write({field_name: value})
+
+    def _apply_change_status(self, record, status_value):
+        if not status_value:
+            raise UserError("Please provide a status value.")
+        if "status" in record._fields:
+            record.write({"status": status_value})
+            return
+        if "state" in record._fields:
+            record.write({"state": status_value})
+            return
+        raise UserError("This record does not have a status field to update.")
 
     def _check_state_completion(self, instance):
         state = instance.state_id
@@ -294,7 +397,7 @@ class WorkflowEngine(models.AbstractModel):
             limit=1,
         )
         if not transitions:
-            raise UserError("No rejection transition configured.")
+            raise UserError("No rejection path is configured for this step.")
         return self._move_to_state(instance, transitions, comment=comment)
 
     def log_action(self, instance, action, from_state, to_state, comment=None, payload=None):

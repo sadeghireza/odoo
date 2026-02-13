@@ -59,16 +59,31 @@ class WorkflowSlaService(models.AbstractModel):
             )
         return True
 
-    def check_timers(self):
-        now = fields.Datetime.now()
+    def check_timers(self, batch_limit=500):
+        start = fields.Datetime.now()
+        now = start
         timers = self.env["workflow.sla.timer"].search(
-            [("status", "=", "pending"), ("due_date", "<=", now)]
+            [("status", "=", "pending"), ("due_date", "<=", now)],
+            limit=batch_limit,
         )
+        total = len(timers)
+        breached = 0
+        escalated = 0
         if timers:
-            _logger.info("workflow_sla_event=check_timers due_count=%s", len(timers))
+            _logger.info("workflow_sla_event=check_timers due_count=%s", total)
         for timer in timers:
             timer.status = "breached"
-            self._escalate(timer)
+            breached += 1
+            if self._escalate(timer):
+                escalated += 1
+        duration_ms = int((fields.Datetime.now() - start).total_seconds() * 1000)
+        _logger.info(
+            "workflow_sla_event=check_timers_summary total=%s breached=%s escalated=%s duration_ms=%s",
+            total,
+            breached,
+            escalated,
+            duration_ms,
+        )
 
     def _escalate(self, timer):
         rule = timer.rule_id
@@ -92,22 +107,43 @@ class WorkflowSlaService(models.AbstractModel):
                 comment="SLA breached",
                 payload={"timer_id": timer.id},
             )
-        if rule.escalation_action == "reassign":
+        if rule.escalation_action in ("reassign", "escalate_to_role"):
             self._reassign_workitems(instance, rule)
+        if rule.escalation_action == "auto_transition":
+            self._auto_transition_instance(instance)
         timer.mark_escalated()
         return True
 
+    def _auto_transition_instance(self, instance):
+        record = self.env[instance.res_model].browse(instance.res_id)
+        eval_context = self.env["workflow.engine"]._build_eval_context(instance, record)
+        return self.env["workflow.engine"]._auto_transition(instance, eval_context)
+
     def _reassign_workitems(self, instance, rule):
-        users = self.env["res.users"]
-        if rule.escalation_user_id:
-            users |= rule.escalation_user_id
-        if rule.escalation_group_id:
-            users |= rule.escalation_group_id.users
+        users = self.env["workflow.assignment"].compute_assignees(
+            instance.state_id,
+            self.env[instance.res_model].browse(instance.res_id),
+            instance,
+            self.env["workflow.engine"]._build_eval_context(
+                instance, self.env[instance.res_model].browse(instance.res_id)
+            ),
+        )
         if not users:
             return False
         pending = instance.workitem_ids.filtered(
             lambda w: w.state_id == instance.state_id and w.status in ("pending", "waiting")
         )
+        if not pending:
+            return False
+        existing = self.env["workflow.workitem"].search(
+            [
+                ("instance_id", "=", instance.id),
+                ("state_id", "=", instance.state_id.id),
+                ("user_id", "in", users.ids),
+                ("status", "in", ("pending", "waiting")),
+            ]
+        )
+        existing_pairs = {(item.user_id.id, item.state_id.id) for item in existing}
         _logger.info(
             "workflow_sla_event=reassign_workitems instance_id=%s state_id=%s users=%s pending=%s",
             instance.id,
@@ -118,6 +154,9 @@ class WorkflowSlaService(models.AbstractModel):
         vals_list = []
         for user in users:
             for item in pending:
+                key = (user.id, item.state_id.id)
+                if key in existing_pairs:
+                    continue
                 vals_list.append(
                     {
                         "instance_id": item.instance_id.id,
