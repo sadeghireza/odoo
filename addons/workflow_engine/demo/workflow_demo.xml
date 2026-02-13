@@ -1,0 +1,81 @@
+<odoo>
+    <data>
+        <record id="workflow_process_contract_demo" model="workflow.process">
+            <field name="name">Contract Demo</field>
+            <field name="code">contract_demo</field>
+            <field name="target_model_id" ref="workflow_engine.model_workflow_contract_demo"/>
+        </record>
+
+        <record id="workflow_version_contract_demo_v1" model="workflow.process.version">
+            <field name="name">Contract Demo v1</field>
+            <field name="process_id" ref="workflow_process_contract_demo"/>
+            <field name="version">1</field>
+            <field name="state">active</field>
+        </record>
+
+        <record id="workflow_state_contract_start" model="workflow.state">
+            <field name="name">Draft</field>
+            <field name="code">draft</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="sequence">1</field>
+            <field name="type">start</field>
+            <field name="approval_mode">none</field>
+        </record>
+
+        <record id="workflow_state_contract_review" model="workflow.state">
+            <field name="name">Review</field>
+            <field name="code">review</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="sequence">10</field>
+            <field name="type">task</field>
+            <field name="approval_mode">sequential</field>
+        </record>
+
+        <record id="workflow_state_contract_done" model="workflow.state">
+            <field name="name">Done</field>
+            <field name="code">done</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="sequence">99</field>
+            <field name="type">end</field>
+            <field name="approval_mode">none</field>
+        </record>
+
+        <record id="workflow_transition_contract_start_review" model="workflow.transition">
+            <field name="name">Submit</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="source_state_id" ref="workflow_state_contract_start"/>
+            <field name="dest_state_id" ref="workflow_state_contract_review"/>
+            <field name="sequence">1</field>
+            <field name="transition_type">normal</field>
+            <field name="trigger">auto</field>
+        </record>
+
+        <record id="workflow_transition_contract_review_done" model="workflow.transition">
+            <field name="name">Approve</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="source_state_id" ref="workflow_state_contract_review"/>
+            <field name="dest_state_id" ref="workflow_state_contract_done"/>
+            <field name="sequence">1</field>
+            <field name="transition_type">normal</field>
+            <field name="trigger">auto</field>
+        </record>
+
+        <record id="workflow_transition_contract_review_reject" model="workflow.transition">
+            <field name="name">Reject</field>
+            <field name="version_id" ref="workflow_version_contract_demo_v1"/>
+            <field name="source_state_id" ref="workflow_state_contract_review"/>
+            <field name="dest_state_id" ref="workflow_state_contract_start"/>
+            <field name="sequence">99</field>
+            <field name="transition_type">reject</field>
+            <field name="trigger">auto</field>
+        </record>
+
+        <record id="workflow_role_rule_contract_reviewer" model="workflow.role.rule">
+            <field name="name">Reviewer</field>
+            <field name="state_id" ref="workflow_state_contract_review"/>
+            <field name="sequence">1</field>
+            <field name="assignment_type">user</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,509 @@
+<odoo>
+    <data>
+        <record id="view_workflow_process_tree" model="ir.ui.view">
+            <field name="name">workflow.process.tree</field>
+            <field name="model">workflow.process</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="target_model_id"/>
+                    <field name="active"/>
+                    <field name="active_version_id"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_process_form" model="ir.ui.view">
+            <field name="name">workflow.process.form</field>
+            <field name="model">workflow.process</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="target_model_id"/>
+                            <field name="active"/>
+                            <field name="active_version_id"/>
+                        </group>
+                        <notebook>
+                            <page string="Versions">
+                                <field name="version_ids"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_process" model="ir.actions.act_window">
+            <field name="name">Processes</field>
+            <field name="res_model">workflow.process</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_version_tree" model="ir.ui.view">
+            <field name="name">workflow.process.version.tree</field>
+            <field name="model">workflow.process.version</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="process_id"/>
+                    <field name="version"/>
+                    <field name="state"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_version_form" model="ir.ui.view">
+            <field name="name">workflow.process.version.form</field>
+            <field name="model">workflow.process.version</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="process_id"/>
+                            <field name="version"/>
+                            <field name="state"/>
+                        </group>
+                        <notebook>
+                            <page string="States">
+                                <field name="state_ids"/>
+                            </page>
+                            <page string="Transitions">
+                                <field name="transition_ids"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_version" model="ir.actions.act_window">
+            <field name="name">Versions</field>
+            <field name="res_model">workflow.process.version</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_state_tree" model="ir.ui.view">
+            <field name="name">workflow.state.tree</field>
+            <field name="model">workflow.state</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="version_id"/>
+                    <field name="type"/>
+                    <field name="approval_mode"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_state_form" model="ir.ui.view">
+            <field name="name">workflow.state.form</field>
+            <field name="model">workflow.state</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="version_id"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="type"/>
+                            <field name="approval_mode"/>
+                            <field name="parallel_policy"/>
+                            <field name="min_approvals"/>
+                        </group>
+                        <group>
+                            <field name="sla_rule_id"/>
+                            <field name="allow_rework"/>
+                        </group>
+                        <group string="UI">
+                            <field name="ui_x"/>
+                            <field name="ui_y"/>
+                        </group>
+                        <notebook>
+                            <page string="Role Rules">
+                                <field name="role_rule_ids"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_state" model="ir.actions.act_window">
+            <field name="name">States</field>
+            <field name="res_model">workflow.state</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_transition_tree" model="ir.ui.view">
+            <field name="name">workflow.transition.tree</field>
+            <field name="model">workflow.transition</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="version_id"/>
+                    <field name="source_state_id"/>
+                    <field name="dest_state_id"/>
+                    <field name="transition_type"/>
+                    <field name="trigger"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_transition_form" model="ir.ui.view">
+            <field name="name">workflow.transition.form</field>
+            <field name="model">workflow.transition</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="version_id"/>
+                            <field name="source_state_id"/>
+                            <field name="dest_state_id"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="transition_type"/>
+                            <field name="trigger"/>
+                        </group>
+                        <notebook>
+                            <page string="Branch" modifiers="{'invisible': [('source_state_id.type', '!=', 'condition')]}">
+                                <group>
+                                    <field name="branch_is_else"/>
+                                    <field name="branch_expression" modifiers="{'invisible': [('branch_is_else', '=', True)]}"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_transition" model="ir.actions.act_window">
+            <field name="name">Transitions</field>
+            <field name="res_model">workflow.transition</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_role_rule_tree" model="ir.ui.view">
+            <field name="name">workflow.role.rule.tree</field>
+            <field name="model">workflow.role.rule</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="state_id"/>
+                    <field name="assignment_type"/>
+                    <field name="user_id"/>
+                    <field name="group_id"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_role_rule_form" model="ir.ui.view">
+            <field name="name">workflow.role.rule.form</field>
+            <field name="model">workflow.role.rule</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="state_id"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="assignment_type"/>
+                            <field name="user_id"/>
+                            <field name="group_id"/>
+                            <field name="expression"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_role_rule" model="ir.actions.act_window">
+            <field name="name">Role Rules</field>
+            <field name="res_model">workflow.role.rule</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+
+        <record id="view_workflow_sla_rule_tree" model="ir.ui.view">
+            <field name="name">workflow.sla.rule.tree</field>
+            <field name="model">workflow.sla.rule</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="state_id"/>
+                    <field name="duration_hours"/>
+                    <field name="escalation_action"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_sla_rule_form" model="ir.ui.view">
+            <field name="name">workflow.sla.rule.form</field>
+            <field name="model">workflow.sla.rule</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="state_id"/>
+                            <field name="duration_hours"/>
+                        </group>
+                        <group>
+                            <field name="escalation_action"/>
+                            <field name="escalation_user_id"/>
+                            <field name="escalation_group_id"/>
+                            <field name="active"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_sla_rule" model="ir.actions.act_window">
+            <field name="name">SLA Rules</field>
+            <field name="res_model">workflow.sla.rule</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_delegation_tree" model="ir.ui.view">
+            <field name="name">workflow.delegation.tree</field>
+            <field name="model">workflow.delegation</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="user_id"/>
+                    <field name="delegate_id"/>
+                    <field name="date_from"/>
+                    <field name="date_to"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_delegation_form" model="ir.ui.view">
+            <field name="name">workflow.delegation.form</field>
+            <field name="model">workflow.delegation</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="delegate_id"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="active"/>
+                            <field name="reason"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_delegation" model="ir.actions.act_window">
+            <field name="name">Delegations</field>
+            <field name="res_model">workflow.delegation</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_instance_tree" model="ir.ui.view">
+            <field name="name">workflow.instance.tree</field>
+            <field name="model">workflow.instance</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="process_id"/>
+                    <field name="version_id"/>
+                    <field name="state_id"/>
+                    <field name="status"/>
+                    <field name="start_date"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_instance_form" model="ir.ui.view">
+            <field name="name">workflow.instance.form</field>
+            <field name="model">workflow.instance</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="process_id"/>
+                            <field name="version_id"/>
+                            <field name="state_id"/>
+                            <field name="status"/>
+                        </group>
+                        <group>
+                            <field name="res_model"/>
+                            <field name="res_id"/>
+                            <field name="started_by"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <notebook>
+                            <page string="Work Items">
+                                <field name="workitem_ids"/>
+                            </page>
+                            <page string="Audit">
+                                <field name="audit_ids"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_instance" model="ir.actions.act_window">
+            <field name="name">Instances</field>
+            <field name="res_model">workflow.instance</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_workitem_tree" model="ir.ui.view">
+            <field name="name">workflow.workitem.tree</field>
+            <field name="model">workflow.workitem</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="instance_id"/>
+                    <field name="state_id"/>
+                    <field name="user_id"/>
+                    <field name="status"/>
+                    <field name="assigned_date"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_workitem_form" model="ir.ui.view">
+            <field name="name">workflow.workitem.form</field>
+            <field name="model">workflow.workitem</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="instance_id"/>
+                            <field name="state_id"/>
+                            <field name="user_id"/>
+                            <field name="status"/>
+                        </group>
+                        <group>
+                            <field name="assigned_date"/>
+                            <field name="action_date"/>
+                        </group>
+                        <group>
+                            <field name="comment"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_workitem" model="ir.actions.act_window">
+            <field name="name">Work Items</field>
+            <field name="res_model">workflow.workitem</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_audit_tree" model="ir.ui.view">
+            <field name="name">workflow.audit.tree</field>
+            <field name="model">workflow.audit</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="instance_id"/>
+                    <field name="action"/>
+                    <field name="user_id"/>
+                    <field name="from_state_id"/>
+                    <field name="to_state_id"/>
+                    <field name="action_date"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_audit_form" model="ir.ui.view">
+            <field name="name">workflow.audit.form</field>
+            <field name="model">workflow.audit</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="instance_id"/>
+                            <field name="action"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group>
+                            <field name="from_state_id"/>
+                            <field name="to_state_id"/>
+                            <field name="action_date"/>
+                        </group>
+                        <group>
+                            <field name="comment"/>
+                            <field name="payload"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_audit" model="ir.actions.act_window">
+            <field name="name">Audit Log</field>
+            <field name="res_model">workflow.audit</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_contract_demo_tree" model="ir.ui.view">
+            <field name="name">workflow.contract.demo.tree</field>
+            <field name="model">workflow.contract.demo</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <field name="amount"/>
+                    <field name="workflow_instance_id"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_contract_demo_form" model="ir.ui.view">
+            <field name="name">workflow.contract.demo.form</field>
+            <field name="model">workflow.contract.demo</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="partner_id"/>
+                            <field name="amount"/>
+                            <field name="workflow_instance_id"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_contract_demo" model="ir.actions.act_window">
+            <field name="name">Contract Demo</field>
+            <field name="res_model">workflow.contract.demo</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="action_workflow_designer" model="ir.actions.client">
+            <field name="name">Designer</field>
+            <field name="tag">workflow_engine.designer</field>
+        </record>
+
+        <menuitem id="menu_workflow_root" name="Workflow Engine" sequence="10"/>
+        <menuitem id="menu_workflow_designer" name="Designer" parent="menu_workflow_root" action="action_workflow_designer" sequence="5"/>
+        <menuitem id="menu_workflow_definition" name="Definitions" parent="menu_workflow_root" sequence="10"/>
+        <menuitem id="menu_workflow_runtime" name="Runtime" parent="menu_workflow_root" sequence="20"/>
+        <menuitem id="menu_workflow_config" name="Configuration" parent="menu_workflow_root" sequence="30"/>
+        <menuitem id="menu_workflow_demo" name="Demo" parent="menu_workflow_root" sequence="40"/>
+
+        <menuitem id="menu_workflow_process" name="Processes" parent="menu_workflow_definition" action="action_workflow_process" sequence="10"/>
+        <menuitem id="menu_workflow_version" name="Versions" parent="menu_workflow_definition" action="action_workflow_version" sequence="20"/>
+        <menuitem id="menu_workflow_state" name="States" parent="menu_workflow_definition" action="action_workflow_state" sequence="30"/>
+        <menuitem id="menu_workflow_transition" name="Transitions" parent="menu_workflow_definition" action="action_workflow_transition" sequence="40"/>
+        <menuitem id="menu_workflow_role_rule" name="Role Rules" parent="menu_workflow_definition" action="action_workflow_role_rule" sequence="60"/>
+
+        <menuitem id="menu_workflow_instance" name="Instances" parent="menu_workflow_runtime" action="action_workflow_instance" sequence="10"/>
+        <menuitem id="menu_workflow_workitem" name="Work Items" parent="menu_workflow_runtime" action="action_workflow_workitem" sequence="20"/>
+        <menuitem id="menu_workflow_audit" name="Audit Log" parent="menu_workflow_runtime" action="action_workflow_audit" sequence="30"/>
+
+        <menuitem id="menu_workflow_sla_rule" name="SLA Rules" parent="menu_workflow_config" action="action_workflow_sla_rule" sequence="10"/>
+        <menuitem id="menu_workflow_delegation" name="Delegations" parent="menu_workflow_config" action="action_workflow_delegation" sequence="20"/>
+
+        <menuitem id="menu_workflow_contract_demo" name="Contract Demo" parent="menu_workflow_demo" action="action_workflow_contract_demo" sequence="10"/>
+    </data>
+</odoo>
+

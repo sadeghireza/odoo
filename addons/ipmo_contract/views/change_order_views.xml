@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ipmo_change_order_tree" model="ir.ui.view">
+        <field name="name">ipmo.change.order.tree</field>
+        <field name="model">ipmo.change.order</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="co_no" />
+                <field name="agreement_id" />
+                <field name="co_date" />
+                <field name="status" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ipmo_change_order_form" model="ir.ui.view">
+        <field name="name">ipmo.change.order.form</field>
+        <field name="model">ipmo.change.order</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_submit" type="object" string="Submit" class="btn-primary" invisible="status != 'draft'" />
+                    <button name="action_approve" type="object" string="Approve" invisible="status != 'submitted'" />
+                    <field name="status" widget="statusbar" statusbar_visible="draft,submitted,approved" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_attachments" type="object" class="oe_stat_button" icon="fa-paperclip">
+                            <field name="attachment_count" widget="statinfo" string="Attachments" />
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="agreement_id" />
+                            <field name="co_no" />
+                            <field name="co_date" />
+                        </group>
+                        <group>
+                            <field name="reason" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lines">
+                            <field name="line_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="agreement_line_id" />
+                                    <field name="delta_quantity" />
+                                    <field name="delta_unit_price" />
+                                    <field name="delta_lump_sum" />
+                                    <field name="delta_ceiling_amount" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ipmo_change_order" model="ir.actions.act_window">
+        <field name="name">Change Orders</field>
+        <field name="res_model">ipmo.change.order</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

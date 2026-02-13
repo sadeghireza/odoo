@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ipmo_attachment_tree" model="ir.ui.view">
+        <field name="name">ipmo.attachment.tree</field>
+        <field name="model">ipmo.attachment</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="res_model" />
+                <field name="res_id" />
+                <field name="uploaded_by" />
+                <field name="uploaded_at" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ipmo_attachment_form" model="ir.ui.view">
+        <field name="name">ipmo.attachment.form</field>
+        <field name="model">ipmo.attachment</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="res_model" />
+                        <field name="res_id" />
+                    </group>
+                    <group>
+                        <field name="file" filename="file" />
+                        <field name="uploaded_by" readonly="1" />
+                        <field name="uploaded_at" readonly="1" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ipmo_attachment" model="ir.actions.act_window">
+        <field name="name">Attachments</field>
+        <field name="res_model">ipmo.attachment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

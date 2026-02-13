@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <report
+        id="action_report_agreement_summary"
+        model="ipmo.agreement"
+        string="Agreement Financial Summary"
+        report_type="qweb-pdf"
+        name="ipmo_contract.report_agreement_summary"
+        file="ipmo_contract.report_agreement_summary"
+    />
+
+    <template id="report_agreement_summary">
+        <t t-call="web.external_layout">
+            <t t-foreach="docs" t-as="o">
+                <div class="page">
+                    <h2>Agreement Financial Summary</h2>
+                    <p>
+                        <strong>Agreement No:</strong>
+                        <span t-esc="o.agreement_no" />
+                    </p>
+                    <p>
+                        <strong>Vendor:</strong>
+                        <span t-esc="o.vendor_id.name" />
+                    </p>
+                    <p>
+                        <strong>Project:</strong>
+                        <span t-esc="o.project_id.name" />
+                    </p>
+                    <p>
+                        <strong>Status:</strong>
+                        <span t-esc="o.status" />
+                    </p>
+
+                    <t t-set="paid_to_date" t-value="sum(o.payment_certificate_ids.filtered(lambda pc: pc.status == 'approved').mapped('net_amount'))" />
+                    <t t-set="committed" t-value="o.total_amount" />
+                    <t t-set="remaining" t-value="committed - paid_to_date" />
+
+                    <table class="table table-sm o_main_table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th class="text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Committed (Total Amount)</td>
+                                <td class="text-right">
+                                    <span t-esc="committed" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Paid to Date</td>
+                                <td class="text-right">
+                                    <span t-esc="paid_to_date" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Remaining Liability</td>
+                                <td class="text-right">
+                                    <span t-esc="remaining" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

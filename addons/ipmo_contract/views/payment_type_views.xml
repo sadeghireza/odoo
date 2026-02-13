@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ipmo_payment_type_tree" model="ir.ui.view">
+        <field name="name">ipmo.payment.type.tree</field>
+        <field name="model">ipmo.payment.type</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code" />
+                <field name="name" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ipmo_payment_type_form" model="ir.ui.view">
+        <field name="name">ipmo.payment.type.form</field>
+        <field name="model">ipmo.payment.type</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="code" />
+                        <field name="name" />
+                    </group>
+                    <group>
+                        <field name="description" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ipmo_payment_type" model="ir.actions.act_window">
+        <field name="name">Payment Types</field>
+        <field name="res_model">ipmo.payment.type</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

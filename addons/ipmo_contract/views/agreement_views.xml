@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ipmo_agreement_tree" model="ir.ui.view">
+        <field name="name">ipmo.agreement.tree</field>
+        <field name="model">ipmo.agreement</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="agreement_no" />
+                <field name="industry_term" />
+                <field name="agreement_type" />
+                <field name="vendor_id" />
+                <field name="project_id" />
+                <field name="status" />
+                <field name="total_amount" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ipmo_agreement_form" model="ir.ui.view">
+        <field name="name">ipmo.agreement.form</field>
+        <field name="model">ipmo.agreement</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_activate" type="object" string="Activate" class="btn-primary" groups="ipmo_contract.group_contract_approver" invisible="status != 'draft'" />
+                    <button name="action_close" type="object" string="Close" invisible="status != 'active'" />
+                    <button name="action_terminate" type="object" string="Terminate" invisible="status != 'active'" />
+                    <field name="status" widget="statusbar" statusbar_visible="draft,active,closed,terminated" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_amendments" type="object" class="oe_stat_button" icon="fa-pencil">
+                            <field name="amendment_count" widget="statinfo" string="Amendments" />
+                        </button>
+                        <button name="action_view_change_orders" type="object" class="oe_stat_button" icon="fa-exchange">
+                            <field name="change_order_count" widget="statinfo" string="Change Orders" />
+                        </button>
+                        <button name="action_view_payment_certificates" type="object" class="oe_stat_button" icon="fa-credit-card">
+                            <field name="payment_certificate_count" widget="statinfo" string="Payments" />
+                        </button>
+                        <button name="action_view_attachments" type="object" class="oe_stat_button" icon="fa-paperclip">
+                            <field name="attachment_count" widget="statinfo" string="Attachments" />
+                        </button>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="agreement_no" />
+                            <field name="industry_term" />
+                            <field name="agreement_type" />
+                            <field name="vendor_id" />
+                            <field name="project_id" />
+                            <field name="subject" />
+                        </group>
+                        <group>
+                            <field name="start_date" />
+                            <field name="end_date" />
+                            <field name="signed_date" />
+                            <field name="currency_id" />
+                            <field name="base_amount" readonly="1" />
+                            <field name="tax_amount" readonly="1" />
+                            <field name="total_amount" readonly="1" />
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Lines">
+                            <field name="line_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="line_no" />
+                                    <field name="description" />
+                                    <field name="payment_type_id" />
+                                    <field name="unit" />
+                                    <field name="quantity" />
+                                    <field name="unit_price" />
+                                    <field name="lump_sum_amount" />
+                                    <field name="ceiling_amount" />
+                                    <field name="line_amount" readonly="1" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Amendments">
+                            <field name="amendment_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="amendment_no" />
+                                    <field name="amendment_date" />
+                                    <field name="delta_amount" />
+                                    <field name="delta_duration" />
+                                    <field name="status" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Change Orders">
+                            <field name="change_order_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="co_no" />
+                                    <field name="co_date" />
+                                    <field name="status" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Payment Certificates">
+                            <field name="payment_certificate_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="pc_no" />
+                                    <field name="pc_date" />
+                                    <field name="gross_amount" readonly="1" />
+                                    <field name="net_amount" readonly="1" />
+                                    <field name="status" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_ipmo_agreement_search" model="ir.ui.view">
+        <field name="name">ipmo.agreement.search</field>
+        <field name="model">ipmo.agreement</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="agreement_no" />
+                <field name="vendor_id" />
+                <field name="project_id" />
+                <field name="status" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_ipmo_agreement" model="ir.actions.act_window">
+        <field name="name">Agreements</field>
+        <field name="res_model">ipmo.agreement</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_ipmo_agreement_search" />
+    </record>
+</odoo>

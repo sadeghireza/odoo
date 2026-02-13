@@ -1,0 +1,10 @@
+<odoo>
+    <data noupdate="1">
+        <record id="base.user_admin" model="res.users">
+            <field name="groups_id" eval="[(4, ref('workflow_engine.group_workflow_admin')), (4, ref('workflow_engine.group_workflow_operator'))]"/>
+        </record>
+        <record id="base.user_root" model="res.users">
+            <field name="groups_id" eval="[(4, ref('workflow_engine.group_workflow_admin')), (4, ref('workflow_engine.group_workflow_operator'))]"/>
+        </record>
+    </data>
+</odoo>

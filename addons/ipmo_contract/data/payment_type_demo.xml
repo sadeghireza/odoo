@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ipmo_payment_type_ls" model="ipmo.payment.type">
+        <field name="code">LS</field>
+        <field name="name">Lump Sum</field>
+        <field name="description">Single fixed amount for defined scope.</field>
+    </record>
+    <record id="ipmo_payment_type_ur" model="ipmo.payment.type">
+        <field name="code">UR</field>
+        <field name="name">Unit Rate</field>
+        <field name="description">Quantity-based payment with unit rates.</field>
+    </record>
+    <record id="ipmo_payment_type_cr" model="ipmo.payment.type">
+        <field name="code">CR</field>
+        <field name="name">Cost Reimbursable</field>
+        <field name="description">Actual cost reimbursed with a ceiling.</field>
+    </record>
+    <record id="ipmo_payment_type_tm" model="ipmo.payment.type">
+        <field name="code">TM</field>
+        <field name="name">Time and Materials</field>
+        <field name="description">Time and materials with a ceiling.</field>
+    </record>
+    <record id="ipmo_payment_type_tc" model="ipmo.payment.type">
+        <field name="code">TC</field>
+        <field name="name">Time and Cost</field>
+        <field name="description">Time and cost with a ceiling.</field>
+    </record>
+</odoo>

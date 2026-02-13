@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workflow_engine.WorkflowDesigner" owl="1">
+        <div class="we-designer">
+            <div class="we-toolbar">
+                <div class="we-toolbar-group is-version">
+                    <span class="we-toolbar-label">Version</span>
+                    <select t-on-change="onVersionChange" t-att-value="state.selectedVersionId">
+                        <t t-foreach="state.versions" t-as="v" t-key="v.id">
+                            <option t-att-value="v.id">
+                                <t t-esc="v.label"/>
+                            </option>
+                        </t>
+                    </select>
+                    <span t-if="state.selectedVersionState" class="we-version-state">
+                        <t t-esc="`state: ${state.selectedVersionState}`"/>
+                    </span>
+                    <button class="btn btn-secondary" t-on-click="reloadGraph">Reload</button>
+                    <button class="btn btn-outline-primary" t-on-click="createRevision" t-att-disabled="!state.selectedVersionId">New Revision</button>
+                    <button class="btn btn-outline-success" t-on-click="activateVersion" t-att-disabled="!state.selectedVersionId">Activate</button>
+                </div>
+                <div class="we-spacer"/>
+                <div class="we-toolbar-group">
+                    <span class="we-toolbar-label">View</span>
+                    <button class="btn btn-light" t-on-click="zoomOut">-</button>
+                    <button class="btn btn-light" t-on-click="zoomIn">+</button>
+                    <button class="btn btn-light" t-on-click="resetView">Reset</button>
+                </div>
+                <span t-if="state.loading" class="we-loading">Loading...</span>
+            </div>
+            <div class="we-body">
+                <div t-att-class="`we-sidebar ${state.buildSidebarMode === 'compact' ? 'is-compact' : ''}`">
+                    <div class="we-sidebar-header">
+                        <span class="we-sidebar-title">Build</span>
+                        <button class="btn btn-light" t-on-click="toggleBuildSidebar" title="Toggle size">
+                            <t t-esc="state.buildSidebarMode === 'compact' ? '>' : '&lt;'"/>
+                        </button>
+                    </div>
+                    <button t-att-class="!state.linkMode ? 'btn btn-primary we-sidebar-btn' : 'btn btn-outline-primary we-sidebar-btn'" t-on-click="useSelectTool">
+                        <i class="fa fa-mouse-pointer"/>
+                        <span class="we-btn-text">Select</span>
+                    </button>
+                    <button class="btn btn-primary we-sidebar-btn" t-on-click="addState">
+                        <i class="fa fa-square"/>
+                        <span class="we-btn-text">Add State</span>
+                    </button>
+                    <button class="btn btn-outline-primary we-sidebar-btn" t-on-click="addConditionNode">
+                        <i class="fa fa-diamond"/>
+                        <span class="we-btn-text">Add Condition</span>
+                    </button>
+                    <button class="btn btn-primary we-sidebar-btn" t-on-click="toggleLinkMode" t-att-class="state.linkMode ? 'btn btn-warning we-sidebar-btn' : 'btn btn-primary we-sidebar-btn'">
+                        <i class="fa fa-link"/>
+                        <span class="we-btn-text"><t t-esc="state.linkMode ? 'Link: Select' : 'Add Transition'"/></span>
+                    </button>
+                    <button class="btn btn-outline-secondary we-sidebar-btn" t-on-click="setStartState" t-att-disabled="!state.selectedStateId">
+                        <i class="fa fa-flag"/>
+                        <span class="we-btn-text">Set Start</span>
+                    </button>
+                </div>
+                <div class="we-canvas">
+                    <svg t-ref="svg" class="we-svg" t-on-pointerdown="onCanvasPointerDown" t-on-pointermove="onCanvasPointerMove" t-on-pointerup="onCanvasPointerUp">
+                        <defs>
+                            <marker id="we-arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+                                <path d="M0,0 L0,6 L9,3 z" fill="#666" />
+                            </marker>
+                        </defs>
+                        <g t-att-transform="`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`">
+                            <t t-foreach="state.transitions" t-as="tr" t-key="tr.id">
+                                <t t-set="edge" t-value="getEdgePoints(tr)"/>
+                                <t t-set="sourceState" t-value="state.states.find((s) => s.id === tr.source_state_id?.[0])"/>
+                                <t t-if="edge">
+                                    <line
+                                        t-att-x1="edge.sx"
+                                        t-att-y1="edge.sy"
+                                        t-att-x2="edge.dx"
+                                        t-att-y2="edge.dy"
+                                        t-att-data-transition-id="tr.id"
+                                        t-on-click="onEdgeClick"
+                                        class="we-edge-hit"
+                                    />
+                                    <line
+                                        t-att-x1="edge.sx"
+                                        t-att-y1="edge.sy"
+                                        t-att-x2="edge.dx"
+                                        t-att-y2="edge.dy"
+                                        t-att-class="`we-edge${state.selectedTransitionId === tr.id ? ' is-selected' : ''}`"
+                                        t-att-data-transition-id="tr.id"
+                                        t-on-click="onEdgeClick"
+                                        marker-end="url(#we-arrow)"
+                                    />
+                                    <text
+                                        t-att-x="(edge.sx + edge.dx) / 2"
+                                        t-att-y="(edge.sy + edge.dy) / 2 - 6"
+                                        t-att-class="`we-edge-label${state.selectedTransitionId === tr.id ? ' is-selected' : ''}`"
+                                        t-att-data-transition-id="tr.id"
+                                        t-on-click="onEdgeClick"
+                                    >
+                                        <t t-esc="tr.name"/>
+                                    </text>
+                                </t>
+                            </t>
+                            <t t-foreach="state.states" t-as="st" t-key="st.id">
+                                <t t-set="pos" t-value="state.positions[st.id]"/>
+                                <g t-if="pos" t-att-transform="`translate(${pos.x}, ${pos.y})`" t-att-class="`we-node${state.selectedStateId === st.id ? ' is-selected' : ''}`" t-att-data-state-id="st.id" t-on-pointerdown="onNodePointerDown">
+                                    <t t-if="st.type === 'condition'">
+                                        <polygon points="60,0 120,26 60,52 0,26" class="we-node-rect we-node-diamond" />
+                                    </t>
+                                    <t t-if="st.type !== 'condition'">
+                                        <rect width="120" height="52" rx="8" ry="8" class="we-node-rect" />
+                                    </t>
+                                    <g class="we-node-ports">
+                                        <t t-if="st.type === 'condition'">
+                                            <circle class="we-node-port" cx="60" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="120" cy="26" r="3" />
+                                            <circle class="we-node-port" cx="60" cy="52" r="3" />
+                                            <circle class="we-node-port" cx="0" cy="26" r="3" />
+                                        </t>
+                                        <t t-if="st.type !== 'condition'">
+                                            <circle class="we-node-port" cx="0" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="60" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="120" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="120" cy="26" r="3" />
+                                            <circle class="we-node-port" cx="120" cy="52" r="3" />
+                                            <circle class="we-node-port" cx="60" cy="52" r="3" />
+                                            <circle class="we-node-port" cx="0" cy="52" r="3" />
+                                            <circle class="we-node-port" cx="0" cy="26" r="3" />
+                                            <circle class="we-node-port" cx="20" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="100" cy="0" r="3" />
+                                            <circle class="we-node-port" cx="20" cy="52" r="3" />
+                                            <circle class="we-node-port" cx="100" cy="52" r="3" />
+                                        </t>
+                                    </g>
+                                    <text x="10" y="22" class="we-node-title">
+                                        <t t-esc="st.name"/>
+                                    </text>
+                                    <text x="10" y="40" class="we-node-sub">
+                                        <t t-esc="st.type"/>
+                                    </text>
+                                </g>
+                            </t>
+                        </g>
+                    </svg>
+                </div>
+                <div class="we-panel">
+                    <div class="we-panel-title">Details</div>
+                    <t t-if="state.selectedStateId">
+                        <div class="we-panel-section">
+                            <div class="we-panel-subtitle">State</div>
+                            <label>Name</label>
+                            <input class="form-control" t-att-value="state.stateForm.name" data-field="name" t-on-input="updateStateField"/>
+                            <label>Code</label>
+                            <input class="form-control" t-att-value="state.stateForm.code" data-field="code" t-on-input="updateStateField"/>
+                            <label>Type</label>
+                            <select class="form-select" t-att-value="state.stateForm.type" data-field="type" t-on-change="updateStateField">
+                                <option value="start">Start</option>
+                                <option value="task">Task</option>
+                                <option value="condition">Condition</option>
+                                <option value="end">End</option>
+                            </select>
+                            <label>Approval</label>
+                            <select class="form-select" t-att-value="state.stateForm.approval_mode" data-field="approval_mode" t-on-change="updateStateField" t-att-disabled="state.stateForm.type === 'condition'">
+                                <option value="none">None</option>
+                                <option value="sequential">Sequential</option>
+                                <option value="parallel">Parallel</option>
+                            </select>
+                            <label>Parallel Policy</label>
+                            <select class="form-select" t-att-value="state.stateForm.parallel_policy" data-field="parallel_policy" t-on-change="updateStateField" t-att-disabled="state.stateForm.type === 'condition'">
+                                <option value="all">All</option>
+                                <option value="any">Any</option>
+                                <option value="min">Minimum</option>
+                            </select>
+                            <label>Min Approvals</label>
+                            <input type="number" class="form-control" t-att-value="state.stateForm.min_approvals" data-field="min_approvals" t-on-input="updateStateNumber" t-att-disabled="state.stateForm.type === 'condition'"/>
+                            <t t-if="state.stateForm.type === 'condition'">
+                                <div class="we-panel-subtitle">Branches</div>
+                                <t t-set="outgoing" t-value="state.transitions.filter((t) => t.source_state_id?.[0] === state.selectedStateId)"/>
+                                <t t-if="!outgoing.length">
+                                    <div class="we-panel-empty">No branches yet. Use Add Transition from this node.</div>
+                                </t>
+                                <t t-foreach="outgoing" t-as="branch" t-key="branch.id">
+                                    <div class="we-branch-row">
+                                        <div class="we-branch-label">
+                                            <t t-esc="branch.branch_is_else ? 'ELSE' : (branch.branch_expression || branch.name)"/>
+                                        </div>
+                                        <button class="btn btn-light" t-att-data-transition-id="branch.id" t-on-click="openBranchEditor">Edit</button>
+                                    </div>
+                                </t>
+                                <t t-if="outgoing.length and !outgoing.some((t) => t.branch_is_else)">
+                                    <div class="we-panel-empty">ELSE branch is required.</div>
+                                </t>
+                            </t>
+                            <div class="we-panel-actions">
+                                <button class="btn btn-success" t-on-click="saveState">Save State</button>
+                                <button class="btn btn-outline-danger" t-on-click="deleteSelectedState">Delete State</button>
+                            </div>
+                        </div>
+                    </t>
+                    <t t-if="state.selectedTransitionId">
+                        <div class="we-panel-section">
+                            <div class="we-panel-subtitle">Transition</div>
+                            <label>Name</label>
+                            <input class="form-control" t-att-value="state.transitionForm.name" data-field="name" t-on-input="updateTransitionField"/>
+                            <label>Trigger</label>
+                            <select class="form-select" t-att-value="state.transitionForm.trigger" data-field="trigger" t-on-change="updateTransitionField">
+                                <option value="manual">Manual</option>
+                                <option value="auto">Auto</option>
+                            </select>
+                            <label>Type</label>
+                            <select class="form-select" t-att-value="state.transitionForm.transition_type" data-field="transition_type" t-on-change="updateTransitionField">
+                                <option value="normal">Normal</option>
+                                <option value="reject">Reject</option>
+                                <option value="rework">Rework</option>
+                            </select>
+                            <label>Branch</label>
+                            <t t-if="state.selectedTransitionSourceType == 'condition'">
+                                <textarea class="form-control" rows="3" readonly="readonly">
+                                    <t t-esc="state.transitionForm.branch_is_else ? 'ELSE' : state.transitionForm.branch_expression"/>
+                                </textarea>
+                                <t t-if="!state.targetModel">
+                                    <div class="we-panel-empty">Set Target Model on Process to use builder.</div>
+                                </t>
+                                <button class="btn btn-outline-primary" t-att-disabled="!state.targetModel" t-on-click="openBuilderModal">Edit Branch</button>
+                            </t>
+                            <t t-if="state.selectedTransitionSourceType != 'condition'">
+                                <div class="we-panel-empty">Branch conditions apply only to condition nodes.</div>
+                            </t>
+                            <div class="we-panel-actions">
+                                <button class="btn btn-success" t-on-click="saveTransition">Save Transition</button>
+                                <button class="btn btn-outline-danger" t-on-click="deleteSelectedTransition">Delete Transition</button>
+                            </div>
+                        </div>
+                    </t>
+                    <t t-if="!state.selectedStateId and !state.selectedTransitionId">
+                        <div class="we-panel-empty">Select a state or transition to edit.</div>
+                    </t>
+                </div>
+            </div>
+        </div>
+        <t t-if="state.builderModalOpen">
+            <div class="we-modal-backdrop" t-on-click="closeBuilderModal"/>
+            <div class="we-modal">
+                <div class="we-modal-header">
+                    <div class="we-modal-title">Condition Builder</div>
+                    <button class="btn btn-light" t-on-click="closeBuilderModal">Close</button>
+                </div>
+                <div class="we-modal-body">
+                    <div class="we-builder-meta">Model: <t t-esc="state.targetModel.name"/></div>
+                    <label class="we-builder-else">
+                        <input type="checkbox" t-model="state.builderDraftIsElse"/>
+                        ELSE branch
+                    </label>
+                    <t t-foreach="state.builderDraftRules" t-as="rule" t-foreach-index="idx" t-key="rule.id">
+                        <div class="we-builder-row">
+                            <select class="form-select we-builder-logic" t-model="rule.logic" t-att-disabled="state.builderDraftIsElse || idx == 0">
+                                <option value="and">AND</option>
+                                <option value="or">OR</option>
+                            </select>
+                            <select class="form-select we-builder-field" t-model="rule.field" t-att-disabled="state.builderDraftIsElse">
+                                <option value="">Select field</option>
+                                <t t-foreach="state.modelFields" t-as="field" t-key="field.name">
+                                    <option t-att-value="field.name"><t t-esc="field.string"/></option>
+                                </t>
+                            </select>
+                            <select class="form-select we-builder-op" t-model="rule.operator" t-att-disabled="state.builderDraftIsElse">
+                                <option value="=">=</option>
+                                <option value="!=">!=</option>
+                                <option value=">">&gt;</option>
+                                <option value=">=">&gt;=</option>
+                                <option value="&lt;">&lt;</option>
+                                <option value="&lt;=">&lt;=</option>
+                                <option value="contains">contains</option>
+                                <option value="in">in</option>
+                                <option value="not_in">not in</option>
+                                <option value="is_set">is set</option>
+                                <option value="is_not_set">is not set</option>
+                            </select>
+                            <input class="form-control we-builder-value" t-model="rule.value" t-att-disabled="state.builderDraftIsElse" placeholder="value"/>
+                            <button class="btn btn-light" t-att-data-index="idx" t-att-disabled="state.builderDraftIsElse" t-on-click="removeRule">Remove</button>
+                        </div>
+                    </t>
+                </div>
+                <div class="we-modal-actions">
+                    <button type="button" class="btn btn-outline-primary" t-att-disabled="state.builderDraftIsElse" t-on-click="addRule">Add Rule</button>
+                    <div class="we-modal-spacer"/>
+                    <button type="button" class="btn btn-secondary" t-on-click="closeBuilderModal">Cancel</button>
+                    <button type="button" class="btn btn-success" t-on-click="saveCondition">Save Condition</button>
+                </div>
+            </div>
+        </t>
+    </t>
+</templates>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ipmo_contract_root" name="PMIS Contracts" parent="project.menu_main_pm" sequence="80" />
+
+    <menuitem id="menu_ipmo_agreement" name="Agreements" parent="menu_ipmo_contract_root" action="action_ipmo_agreement" sequence="10" />
+    <menuitem id="menu_ipmo_vendor" name="Vendors" parent="menu_ipmo_contract_root" action="action_ipmo_vendor" sequence="20" />
+    <menuitem id="menu_ipmo_payment_type" name="Payment Types" parent="menu_ipmo_contract_root" action="action_ipmo_payment_type" sequence="30" />
+    <menuitem id="menu_ipmo_amendment" name="Amendments" parent="menu_ipmo_contract_root" action="action_ipmo_agreement_amendment" sequence="40" />
+    <menuitem id="menu_ipmo_change_order" name="Change Orders" parent="menu_ipmo_contract_root" action="action_ipmo_change_order" sequence="50" />
+    <menuitem id="menu_ipmo_payment_certificate" name="Payment Certificates" parent="menu_ipmo_contract_root" action="action_ipmo_payment_certificate" sequence="60" />
+    <menuitem id="menu_ipmo_attachment" name="Attachments" parent="menu_ipmo_contract_root" action="action_ipmo_attachment" sequence="70" />
+</odoo>

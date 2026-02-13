@@ -1,0 +1,17 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_workflow_process_admin,workflow.process,model_workflow_process,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_process_version_admin,workflow.process.version,model_workflow_process_version,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_state_admin,workflow.state,model_workflow_state,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_transition_admin,workflow.transition,model_workflow_transition,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_role_rule_admin,workflow.role.rule,model_workflow_role_rule,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_sla_rule_admin,workflow.sla.rule,model_workflow_sla_rule,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_sla_timer_admin,workflow.sla.timer,model_workflow_sla_timer,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_delegation_admin,workflow.delegation,model_workflow_delegation,workflow_engine.group_workflow_admin,1,1,1,1
+
+access_workflow_instance_operator,workflow.instance,model_workflow_instance,workflow_engine.group_workflow_operator,1,1,1,0
+access_workflow_workitem_operator,workflow.workitem,model_workflow_workitem,workflow_engine.group_workflow_operator,1,1,1,0
+access_workflow_audit_operator,workflow.audit,model_workflow_audit,workflow_engine.group_workflow_operator,1,0,0,0
+
+access_workflow_audit_auditor,workflow.audit,model_workflow_audit,workflow_engine.group_workflow_auditor,1,0,0,0
+
+access_workflow_contract_demo,workflow.contract.demo,model_workflow_contract_demo,workflow_engine.group_workflow_operator,1,1,1,1

@@ -1,0 +1,27 @@
+{
+    'name': 'IPMO Contract',
+    'summary': 'Contract and agreement management for EPC/IPC projects',
+    'version': '18.0.1.0',
+    'category': 'Project/PMIS',
+    'license': 'LGPL-3',
+    'depends': ['base', 'project'],
+    'data': [
+        'security/security.xml',
+        'security/ir.model.access.csv',
+        'views/vendor_views.xml',
+        'views/payment_type_views.xml',
+        'views/agreement_views.xml',
+        'views/amendment_views.xml',
+        'views/change_order_views.xml',
+        'views/payment_certificate_views.xml',
+        'views/attachment_views.xml',
+        'views/res_users_views.xml',
+        'views/menu.xml',
+        'reports/agreement_report.xml',
+    ],
+    'demo': [
+        'data/payment_type_demo.xml',
+    ],
+    'application': True,
+    'installable': True,
+}
