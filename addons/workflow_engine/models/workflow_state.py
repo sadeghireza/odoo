@@ -1,6 +1,19 @@
+import re
+
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.tools.safe_eval import safe_eval
+
+_EXPR_BLACKLIST = re.compile(
+    r"(__|\bimport\b|\beval\b|\bexec\b|\bopen\b|\bsudo\b|\benv\b|\bcr\b|\bcursor\b|"
+    r"\bwrite\b|\bunlink\b|\bcreate\b|\bsearch\b|\bbrowse\b|\bwith_context\b)",
+    re.IGNORECASE,
+)
+
+
+def _validate_expression(expression):
+    if expression and _EXPR_BLACKLIST.search(expression):
+        raise ValidationError("Expression contains forbidden tokens.")
 
 
 class WorkflowState(models.Model):
@@ -9,8 +22,14 @@ class WorkflowState(models.Model):
     _order = "sequence, id"
 
     name = fields.Char(required=True)
-    code = fields.Char(required=True, index=True)
+    code = fields.Char(index=True)
     version_id = fields.Many2one("workflow.process.version", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        related="version_id.company_id",
+        store=True,
+        readonly=True,
+    )
     sequence = fields.Integer(default=10)
     type = fields.Selection(
         [("start", "Start"), ("task", "Task"), ("condition", "Condition"), ("end", "End")],
@@ -49,7 +68,14 @@ class WorkflowTransition(models.Model):
     _order = "sequence, id"
 
     name = fields.Char(required=True)
+    code = fields.Char(index=True)
     version_id = fields.Many2one("workflow.process.version", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        related="version_id.company_id",
+        store=True,
+        readonly=True,
+    )
     source_state_id = fields.Many2one("workflow.state", required=True, ondelete="cascade")
     dest_state_id = fields.Many2one("workflow.state", required=True, ondelete="cascade")
     sequence = fields.Integer(default=10)
@@ -66,6 +92,34 @@ class WorkflowTransition(models.Model):
     branch_expression = fields.Text(help="Python expression for conditional branch evaluation")
     branch_is_else = fields.Boolean(default=False, help="Marks this branch as the ELSE path")
 
+    _sql_constraints = [
+        (
+            "workflow_transition_code_uniq",
+            "unique(version_id, code)",
+            "Transition code must be unique per version.",
+        ),
+    ]
+
+    @api.model
+    def _normalize_code(self, value):
+        value = (value or "").strip().lower()
+        value = re.sub(r"[^a-z0-9]+", "_", value)
+        value = re.sub(r"_+", "_", value).strip("_")
+        return value or "transition"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("code") and vals.get("name"):
+                vals["code"] = self._normalize_code(vals["name"])
+        return super().create(vals_list)
+
+    @api.constrains("code")
+    def _check_code(self):
+        for transition in self:
+            if not transition.code:
+                raise ValidationError("Transition code is required.")
+
     @api.constrains("source_state_id", "branch_expression", "branch_is_else")
     def _check_branch_rules(self):
         for transition in self:
@@ -75,6 +129,7 @@ class WorkflowTransition(models.Model):
                     raise ValidationError("ELSE branch cannot have an expression.")
                 if not transition.branch_is_else and not transition.branch_expression:
                     raise ValidationError("Conditional branch must have an expression.")
+                _validate_expression(transition.branch_expression)
                 if transition.branch_is_else:
                     duplicate = self.search_count(
                         [
@@ -88,6 +143,7 @@ class WorkflowTransition(models.Model):
             else:
                 if transition.branch_is_else or transition.branch_expression:
                     raise ValidationError("Branch expressions are only allowed from condition nodes.")
+                _validate_expression(transition.branch_expression)
 
 
 class WorkflowRoleRule(models.Model):
@@ -106,6 +162,11 @@ class WorkflowRoleRule(models.Model):
     user_id = fields.Many2one("res.users")
     group_id = fields.Many2one("res.groups")
     expression = fields.Text(help="Python expression returning users or user ids")
+
+    @api.constrains("expression")
+    def _check_expression(self):
+        for rule in self:
+            _validate_expression(rule.expression)
 
     def resolve_users(self, eval_context):
         self.ensure_one()

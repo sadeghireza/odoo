@@ -7,6 +7,7 @@ access_workflow_role_rule_admin,workflow.role.rule,model_workflow_role_rule,work
 access_workflow_sla_rule_admin,workflow.sla.rule,model_workflow_sla_rule,workflow_engine.group_workflow_admin,1,1,1,1
 access_workflow_sla_timer_admin,workflow.sla.timer,model_workflow_sla_timer,workflow_engine.group_workflow_admin,1,1,1,1
 access_workflow_delegation_admin,workflow.delegation,model_workflow_delegation,workflow_engine.group_workflow_admin,1,1,1,1
+access_workflow_api_key_admin,workflow.api_key,model_workflow_api_key,workflow_engine.group_workflow_admin,1,1,1,1
 
 access_workflow_instance_operator,workflow.instance,model_workflow_instance,workflow_engine.group_workflow_operator,1,1,1,0
 access_workflow_workitem_operator,workflow.workitem,model_workflow_workitem,workflow_engine.group_workflow_operator,1,1,1,0

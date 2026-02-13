@@ -42,6 +42,7 @@
 
         <record id="workflow_transition_contract_start_review" model="workflow.transition">
             <field name="name">Submit</field>
+            <field name="code">submit</field>
             <field name="version_id" ref="workflow_version_contract_demo_v1"/>
             <field name="source_state_id" ref="workflow_state_contract_start"/>
             <field name="dest_state_id" ref="workflow_state_contract_review"/>
@@ -52,6 +53,7 @@
 
         <record id="workflow_transition_contract_review_done" model="workflow.transition">
             <field name="name">Approve</field>
+            <field name="code">approve</field>
             <field name="version_id" ref="workflow_version_contract_demo_v1"/>
             <field name="source_state_id" ref="workflow_state_contract_review"/>
             <field name="dest_state_id" ref="workflow_state_contract_done"/>
@@ -62,6 +64,7 @@
 
         <record id="workflow_transition_contract_review_reject" model="workflow.transition">
             <field name="name">Reject</field>
+            <field name="code">reject</field>
             <field name="version_id" ref="workflow_version_contract_demo_v1"/>
             <field name="source_state_id" ref="workflow_state_contract_review"/>
             <field name="dest_state_id" ref="workflow_state_contract_start"/>

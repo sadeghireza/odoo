@@ -8,6 +8,11 @@ class WorkflowDelegation(models.Model):
 
     user_id = fields.Many2one("res.users", required=True, ondelete="cascade", index=True)
     delegate_id = fields.Many2one("res.users", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        required=True,
+        default=lambda self: self.env.company,
+    )
     date_from = fields.Datetime(required=True)
     date_to = fields.Datetime(required=True)
     active = fields.Boolean(default=True)
@@ -19,6 +24,7 @@ class WorkflowDelegation(models.Model):
             [
                 ("user_id", "=", user.id),
                 ("active", "=", True),
+                ("company_id", "in", self.env.companies.ids),
                 ("date_from", "<=", date),
                 ("date_to", ">=", date),
             ],

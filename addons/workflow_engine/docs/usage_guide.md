@@ -59,7 +59,24 @@ Attach an SLA rule to a state. The SLA service will create timers and escalate o
 Create a delegation rule to temporarily route tasks from one user to another.
 
 ## REST API (JSON)
-Endpoints:
+Versioned endpoints (preferred):
+- `/api/v1/workflow/instance/create`
+- `/api/v1/workflow/instance/state`
+- `/api/v1/workflow/instance/trigger`
+- `/api/v1/workflow/instance/audit`
+- `/api/v1/workflow/instances`
+- `/api/v1/workflow/workitems`
+- `/api/v1/workflow/workitems/bulk`
+
+Response envelope (v1 only):
+- Success: `{ "ok": true, "data": ... }`
+- Error: `{ "ok": false, "error": { "code": "user_error|access_denied|server_error", "message": "..." } }`
+
+Authentication:
+- Session (legacy routes)
+- API key (v1 routes): `Authorization: Bearer <key>` or `X-API-Key: <key>`
+
+Legacy endpoints (backward compatible):
 - `/api/workflow/instance/create`
 - `/api/workflow/instance/state`
 - `/api/workflow/instance/trigger`
@@ -70,6 +87,26 @@ Endpoints:
 
 ## Example Demo
 A demo workflow is included for `workflow.contract.demo` with process code `contract_demo`.
+
+## Observability (Logs)
+Workflow and SLA services emit structured logs you can index:
+- `workflow_event=start|transition|complete|workitem_complete`
+- `workflow_sla_event=create_timer|close_timer|check_timers|escalate|reassign_workitems`
+
+## Audit Retention
+Set `workflow_engine.audit_retention_days` in system parameters (default: 365).
+The cron "Workflow Audit Retention" purges audit logs older than the retention window.
+
+## Rate Limiting
+In-app rate limiting is enabled for workflow APIs:
+- `workflow_engine.rate_limit_window_sec` (default: 60)
+- `workflow_engine.rate_limit_max` (default: 120)
+For production, enforce additional limits at the reverse proxy.
+
+## Health Check
+Endpoint: `/api/v1/workflow/health`
+- By default requires API key.
+- Set `workflow_engine.health_allow_public=1` to allow public health checks.
 
 ---
 
@@ -134,7 +171,24 @@ record.action_start_workflow()
 برای بازه زمانی مشخص، واگذاری از یک کاربر به کاربر دیگر ثبت کنید.
 
 ## REST API (JSON)
-مسیرها:
+مسیرهاي نسخه بندي شده (ترجيحي):
+- `/api/v1/workflow/instance/create`
+- `/api/v1/workflow/instance/state`
+- `/api/v1/workflow/instance/trigger`
+- `/api/v1/workflow/instance/audit`
+- `/api/v1/workflow/instances`
+- `/api/v1/workflow/workitems`
+- `/api/v1/workflow/workitems/bulk`
+
+فرمت پاسخ در نسخه 1:
+- موفقيت: `{ "ok": true, "data": ... }`
+- خطا: `{ "ok": false, "error": { "code": "user_error|access_denied|server_error", "message": "..." } }`
+
+احراز هويت:
+- Session (مسيرهاي قديمي)
+- API key (نسخه 1): `Authorization: Bearer <key>` يا `X-API-Key: <key>`
+
+مسيرهاي قبلي (سازگار با قبل):
 - `/api/workflow/instance/create`
 - `/api/workflow/instance/state`
 - `/api/workflow/instance/trigger`
@@ -145,3 +199,23 @@ record.action_start_workflow()
 
 ## نمونه
 یک نمونه آماده برای مدل `workflow.contract.demo` با کد `contract_demo` قرار داده شده است.
+
+## پایش (Log)
+رویدادهاي کلیدی در لاگ ثبت مي شوند:
+- `workflow_event=start|transition|complete|workitem_complete`
+- `workflow_sla_event=create_timer|close_timer|check_timers|escalate|reassign_workitems`
+
+## نگهداري Audit
+در System Parameters مقدار `workflow_engine.audit_retention_days` را تنظيم کنيد (پيشفرض: 365).
+کرون "Workflow Audit Retention" گزارش هاي قديمي تر از بازه را پاک مي کند.
+
+## محدودسازي درخواست
+محدودسازي درخواست در API فعال است:
+- `workflow_engine.rate_limit_window_sec` (پيشفرض: 60)
+- `workflow_engine.rate_limit_max` (پيشفرض: 120)
+در توليد، محدودسازي را در Reverse Proxy نيز اعمال کنيد.
+
+## سلامت سرويس
+مسير: `/api/v1/workflow/health`
+- به صورت پيشفرض نياز به API key دارد.
+- براي دسترسي عمومي، `workflow_engine.health_allow_public=1` را تنظيم کنيد.

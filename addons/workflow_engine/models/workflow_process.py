@@ -7,6 +7,11 @@ class WorkflowProcess(models.Model):
 
     name = fields.Char(required=True)
     code = fields.Char(required=True, index=True)
+    company_id = fields.Many2one(
+        "res.company",
+        required=True,
+        default=lambda self: self.env.company,
+    )
     target_model_id = fields.Many2one(
         "ir.model",
         string="Target Model",
@@ -33,6 +38,12 @@ class WorkflowProcessVersion(models.Model):
 
     name = fields.Char(required=True)
     process_id = fields.Many2one("workflow.process", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        related="process_id.company_id",
+        store=True,
+        readonly=True,
+    )
     version = fields.Integer(required=True, default=1)
     state = fields.Selection(
         [("draft", "Draft"), ("active", "Active"), ("retired", "Retired")],
@@ -89,6 +100,7 @@ class WorkflowProcessVersion(models.Model):
             self.env["workflow.transition"].create(
                 {
                     "name": transition.name,
+                    "code": transition.code,
                     "version_id": new_version.id,
                     "source_state_id": state_map.get(transition.source_state_id.id),
                     "dest_state_id": state_map.get(transition.dest_state_id.id),

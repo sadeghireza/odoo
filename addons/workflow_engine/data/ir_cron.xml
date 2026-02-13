@@ -9,5 +9,14 @@
             <field name="interval_type">minutes</field>
             <field name="active">True</field>
         </record>
+        <record id="ir_cron_workflow_audit_purge" model="ir.cron">
+            <field name="name">Workflow Audit Retention</field>
+            <field name="model_id" ref="model_workflow_audit"/>
+            <field name="state">code</field>
+            <field name="code">model.purge_old_audits()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
     </data>
 </odoo>

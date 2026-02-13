@@ -1,6 +1,9 @@
+import logging
 from datetime import timedelta
 
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class WorkflowSlaService(models.AbstractModel):
@@ -29,6 +32,13 @@ class WorkflowSlaService(models.AbstractModel):
                 "due_date": due_date,
             }
         )
+        _logger.info(
+            "workflow_sla_event=create_timer instance_id=%s state_id=%s rule_id=%s due_date=%s",
+            instance.id,
+            state.id,
+            rule.id,
+            due_date,
+        )
         return True
 
     def close_timers(self, instance, state):
@@ -41,11 +51,21 @@ class WorkflowSlaService(models.AbstractModel):
         )
         if timers:
             timers.write({"status": "cleared"})
+            _logger.info(
+                "workflow_sla_event=close_timer instance_id=%s state_id=%s count=%s",
+                instance.id,
+                state.id,
+                len(timers),
+            )
         return True
 
     def check_timers(self):
         now = fields.Datetime.now()
-        timers = self.env["workflow.sla.timer"].search([("status", "=", "pending"), ("due_date", "<=", now)])
+        timers = self.env["workflow.sla.timer"].search(
+            [("status", "=", "pending"), ("due_date", "<=", now)]
+        )
+        if timers:
+            _logger.info("workflow_sla_event=check_timers due_count=%s", len(timers))
         for timer in timers:
             timer.status = "breached"
             self._escalate(timer)
@@ -56,6 +76,13 @@ class WorkflowSlaService(models.AbstractModel):
         if instance.status != "running":
             timer.status = "escalated"
             return False
+        _logger.info(
+            "workflow_sla_event=escalate instance_id=%s state_id=%s rule_id=%s action=%s",
+            instance.id,
+            instance.state_id.id,
+            rule.id,
+            rule.escalation_action,
+        )
         if rule.escalation_action == "notify":
             self.env["workflow.engine"].log_action(
                 instance,
@@ -81,7 +108,26 @@ class WorkflowSlaService(models.AbstractModel):
         pending = instance.workitem_ids.filtered(
             lambda w: w.state_id == instance.state_id and w.status in ("pending", "waiting")
         )
+        _logger.info(
+            "workflow_sla_event=reassign_workitems instance_id=%s state_id=%s users=%s pending=%s",
+            instance.id,
+            instance.state_id.id,
+            len(users),
+            len(pending),
+        )
+        vals_list = []
         for user in users:
             for item in pending:
-                item.copy({"user_id": user.id, "status": "pending"})
+                vals_list.append(
+                    {
+                        "instance_id": item.instance_id.id,
+                        "state_id": item.state_id.id,
+                        "user_id": user.id,
+                        "status": "pending",
+                        "sequence": item.sequence,
+                        "assigned_date": item.assigned_date,
+                    }
+                )
+        if vals_list:
+            self.env["workflow.workitem"].create(vals_list)
         return True

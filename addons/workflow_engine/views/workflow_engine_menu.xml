@@ -7,6 +7,7 @@
                 <list>
                     <field name="name"/>
                     <field name="code"/>
+                    <field name="company_id"/>
                     <field name="target_model_id"/>
                     <field name="active"/>
                     <field name="active_version_id"/>
@@ -22,6 +23,7 @@
                         <group>
                             <field name="name"/>
                             <field name="code"/>
+                            <field name="company_id"/>
                             <field name="target_model_id"/>
                             <field name="active"/>
                             <field name="active_version_id"/>
@@ -143,6 +145,7 @@
             <field name="arch" type="xml">
                 <list>
                     <field name="name"/>
+                    <field name="code"/>
                     <field name="version_id"/>
                     <field name="source_state_id"/>
                     <field name="dest_state_id"/>
@@ -159,6 +162,7 @@
                     <sheet>
                         <group>
                             <field name="name"/>
+                            <field name="code"/>
                             <field name="version_id"/>
                             <field name="source_state_id"/>
                             <field name="dest_state_id"/>
@@ -274,6 +278,7 @@
                 <list>
                     <field name="user_id"/>
                     <field name="delegate_id"/>
+                    <field name="company_id"/>
                     <field name="date_from"/>
                     <field name="date_to"/>
                     <field name="active"/>
@@ -289,6 +294,7 @@
                         <group>
                             <field name="user_id"/>
                             <field name="delegate_id"/>
+                            <field name="company_id"/>
                         </group>
                         <group>
                             <field name="date_from"/>
@@ -303,6 +309,54 @@
         <record id="action_workflow_delegation" model="ir.actions.act_window">
             <field name="name">Delegations</field>
             <field name="res_model">workflow.delegation</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="view_workflow_api_key_tree" model="ir.ui.view">
+            <field name="name">workflow.api_key.tree</field>
+            <field name="model">workflow.api_key</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="name"/>
+                    <field name="user_id"/>
+                    <field name="company_id"/>
+                    <field name="key_prefix"/>
+                    <field name="active"/>
+                    <field name="expires_at"/>
+                    <field name="last_used_at"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_workflow_api_key_form" model="ir.ui.view">
+            <field name="name">workflow.api_key.form</field>
+            <field name="model">workflow.api_key</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_generate_key" type="object" string="Generate Key" class="btn-primary"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="user_id"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group>
+                            <field name="key_prefix" readonly="1"/>
+                            <field name="active"/>
+                            <field name="expires_at"/>
+                            <field name="last_used_at" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="scopes"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_workflow_api_key" model="ir.actions.act_window">
+            <field name="name">API Keys</field>
+            <field name="res_model">workflow.api_key</field>
             <field name="view_mode">list,form</field>
         </record>
 
@@ -502,6 +556,7 @@
 
         <menuitem id="menu_workflow_sla_rule" name="SLA Rules" parent="menu_workflow_config" action="action_workflow_sla_rule" sequence="10"/>
         <menuitem id="menu_workflow_delegation" name="Delegations" parent="menu_workflow_config" action="action_workflow_delegation" sequence="20"/>
+        <menuitem id="menu_workflow_api_key" name="API Keys" parent="menu_workflow_config" action="action_workflow_api_key" sequence="30"/>
 
         <menuitem id="menu_workflow_contract_demo" name="Contract Demo" parent="menu_workflow_demo" action="action_workflow_contract_demo" sequence="10"/>
     </data>

@@ -7,6 +7,12 @@ class WorkflowSlaRule(models.Model):
 
     name = fields.Char(required=True)
     state_id = fields.Many2one("workflow.state", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        related="state_id.company_id",
+        store=True,
+        readonly=True,
+    )
     duration_hours = fields.Float(required=True, default=24.0)
     escalation_action = fields.Selection(
         [("notify", "Notify"), ("reassign", "Reassign")],
@@ -24,6 +30,12 @@ class WorkflowSlaTimer(models.Model):
     _order = "due_date asc"
 
     instance_id = fields.Many2one("workflow.instance", required=True, ondelete="cascade", index=True)
+    company_id = fields.Many2one(
+        "res.company",
+        related="instance_id.company_id",
+        store=True,
+        readonly=True,
+    )
     state_id = fields.Many2one("workflow.state", required=True, ondelete="restrict", index=True)
     rule_id = fields.Many2one("workflow.sla.rule", required=True, ondelete="restrict")
     due_date = fields.Datetime(required=True, index=True)

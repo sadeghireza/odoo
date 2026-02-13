@@ -1,7 +1,7 @@
 {
     "name": "Workflow Engine",
     "summary": "Model-agnostic workflow engine with versioned definitions",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "category": "Tools",
     "license": "LGPL-3",
     "author": "Workflow Engine",
@@ -25,6 +25,7 @@
         ],
         "web.assets_tests": [],
     },
+    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": False,
 }
